@@ -92,10 +92,8 @@
       "default": "./dist/*/*/*/*/*.js"
     }
   },
-  "dependencies": {
-    "@fullstackhouse/open-mercato-durable-work": "workspace:^"
-  },
   "peerDependencies": {
+    "@fullstackhouse/open-mercato-durable-work": "*",
     "@mikro-orm/core": ">=7.0.0",
     "@mikro-orm/migrations": ">=7.0.0",
     "@mikro-orm/postgresql": ">=7.0.0",
@@ -110,6 +108,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@fullstackhouse/open-mercato-durable-work": "workspace:^",
     "@mikro-orm/core": "^7.1.8",
     "@mikro-orm/migrations": "^7.1.8",
     "@mikro-orm/postgresql": "^7.1.8",

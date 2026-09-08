@@ -187,5 +187,13 @@ export class KindRegistry {
   }
 }
 
-/** The process-wide registry. Modules register into this at import time. */
+/**
+ * The process-wide registry. Modules register into this at import time.
+ *
+ * Module-scoped, so there is exactly one per copy of this package in the process — which is why
+ * anything registering kinds must depend on this package as a PEER, never as a dependency. A
+ * nested second copy would give the adopter its own registry: kinds would register into one,
+ * the worker would read the other, and nothing would run. No error, no warning, just jobs that
+ * sit pending forever while the reconciler eventually parks them `no_handler`.
+ */
 export const registry = new KindRegistry()

@@ -2092,6 +2092,7 @@ __metadata:
     vitest: "npm:^3.0.0"
     zod: "npm:^4.4.3"
   peerDependencies:
+    "@fullstackhouse/open-mercato-durable-work": "*"
     "@mikro-orm/core": ">=7.0.0"
     "@mikro-orm/migrations": ">=7.0.0"
     "@mikro-orm/postgresql": ">=7.0.0"
