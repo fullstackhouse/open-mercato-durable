@@ -6,7 +6,7 @@ Node 24.x, yarn 4 (via corepack), Docker.
 
 ```bash
 docker compose up -d                # postgres :5480 · redis :6480 (non-default on purpose)
-cp apps/sandbox/.env.example apps/sandbox/.env
+./scripts/sandbox-env.sh            # .env from the template, with generated secrets
 yarn install
 yarn build:packages
 yarn workspace sandbox generate     # the app registry is generated from the packages' dist
@@ -15,7 +15,14 @@ yarn dev                            # http://localhost:3000/backend
 yarn dev:worker                     # the durable worker, second terminal
 ```
 
-Log in as `superadmin@acme.com` / `secret`.
+Log in as `superadmin@acme.com` / `secret` (form-encoded if you are calling the API by hand —
+`/api/auth/login` does not accept JSON).
+
+`sandbox-env.sh` generates the secrets rather than committing them: the template's placeholders
+are fine for `yarn dev`, but the e2e runner builds and starts the app in production mode, where
+core refuses to boot on a secret published in its own examples. Re-running it with `--force`
+rotates `TENANT_DATA_ENCRYPTION_FALLBACK_KEY`, which makes an existing database's encrypted
+columns unreadable — re-run `yarn initialize` after.
 
 ## The loop
 

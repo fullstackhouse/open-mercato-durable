@@ -1,0 +1,37 @@
+{
+  "$comment": "Read by scripts/platform-sync.mjs. `yarn platform:sync --channel latest|develop` repins every @open-mercato dependency below to the exact version behind that npm dist-tag, across the sandbox and every workspace package. `--check` fails when the repo has drifted. The `compat` CI lane runs both channels so the build groomershop tracks (develop) is exercised alongside the released one.",
+  "sandboxManifest": "apps/sandbox/package.json",
+  "workspaceGlob": "packages/*/package.json",
+  "channels": {
+    "main": {
+      "distTag": "latest"
+    },
+    "develop": {
+      "distTag": "develop"
+    }
+  },
+  "platformPackages": [
+    "@open-mercato/ai-assistant",
+    "@open-mercato/cache",
+    "@open-mercato/channel-apns",
+    "@open-mercato/channel-expo",
+    "@open-mercato/channel-fcm",
+    "@open-mercato/channel-gmail",
+    "@open-mercato/channel-imap",
+    "@open-mercato/checkout",
+    "@open-mercato/cli",
+    "@open-mercato/content",
+    "@open-mercato/core",
+    "@open-mercato/events",
+    "@open-mercato/gateway-stripe",
+    "@open-mercato/onboarding",
+    "@open-mercato/queue",
+    "@open-mercato/scheduler",
+    "@open-mercato/search",
+    "@open-mercato/shared",
+    "@open-mercato/sync-akeneo",
+    "@open-mercato/telemetry",
+    "@open-mercato/ui",
+    "@open-mercato/webhooks"
+  ]
+}

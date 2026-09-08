@@ -35,6 +35,9 @@ yarn-error.log*
 /playwright-report
 .ai/qa/test-results
 .ai/qa/ephemeral-env.json
+.ai/qa/ephemeral-build-cache.json
+.ai/qa/ephemeral-cache.sqlite*
+.ai/qa/ephemeral-runtime.lock/
 .ai/dev-ephemeral-envs.json
 
 .vscode/

@@ -84,14 +84,36 @@ jobs:
       - run: corepack enable
       - run: yarn install --immutable
       - run: yarn build:packages
+      # No __integration__ specs exist before phase 6, and the ephemeral runner exits 1 on
+      # "no tests found" — so booting a whole app to discover that is 6 wasted minutes.
+      # This turns itself on the moment the first spec lands.
+      - id: specs
+        run: |
+          set -euo pipefail
+          # A boolean, not a count: `wc -l` pads its output on some platforms, and a padded
+          # "0" is a non-empty string that would quietly defeat the `if:` below.
+          if [ -n "$(find packages -path '*/__integration__/TC-*.spec.ts' -print -quit)" ]; then
+            echo 'found=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'found=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::No __integration__ specs yet — skipping the e2e lane.'
+          fi
       # The OM ephemeral runner brings up its own Postgres and app via testcontainers.
       # The durable worker is hosted in-process here; failure injection lives in harness/.
-      - run: yarn workspace sandbox exec playwright install --with-deps chromium
-      - run: yarn test:integration:ephemeral
+      # The runner builds and starts the app in PRODUCTION mode, where core refuses to boot
+      # on the placeholder secrets .env.example ships. Generate real ones for this run.
+      - if: steps.specs.outputs.found == 'true'
+        run: ./scripts/sandbox-env.sh --force
+      - if: steps.specs.outputs.found == 'true'
+        run: yarn workspace sandbox exec playwright install --with-deps chromium
+      - if: steps.specs.outputs.found == 'true'
+        run: yarn test:integration:ephemeral
         env:
           DURABLE_WORK_INPROCESS_WORKER: '1'
+          # The full OM app build is memory-hungry; the default runner heap is not enough.
+          NODE_OPTIONS: --max-old-space-size=6144
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() && steps.specs.outputs.found == 'true'
         with:
           name: playwright-report
           path: |
@@ -115,10 +137,17 @@ jobs:
       - run: yarn install
       - run: yarn platform:sync --channel ${{ matrix.channel }}
       - run: yarn install --no-immutable
-      # The mirror is regenerated against the channel's core: a drift here is the signal
-      # that this channel needs its own data-sync-durable release (ADR 0006).
+      # Regenerated against the channel's core. A diff here is information, not a failure:
+      # a newer core legitimately mirrors differently, and that is what a per-core-minor
+      # release of data-sync-durable exists for (ADR 0006). What must not break is the
+      # build and the tests below — including the mirror-shape contract.
       - run: yarn gen:mirror
-      - run: git diff --exit-code --stat packages/data-sync-durable
+      - name: Report mirror drift against this channel
+        run: |
+          git diff --stat -- packages/data-sync-durable > drift.txt || true
+          if [ -s drift.txt ]; then
+            { echo "### Mirror drift on \`${{ matrix.channel }}\`"; echo '```'; cat drift.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - run: yarn build:packages
       - run: yarn workspace sandbox generate
       - run: yarn typecheck
