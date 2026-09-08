@@ -69,7 +69,7 @@ export { reconcileOnce } from './core/reconciler'
 export type { ReconcileReport, ReconcilerDeps } from './core/reconciler'
 export { RECONCILE_QUEUE, RECONCILE_TICK_ID, enqueueJob, startWorker } from './core/worker'
 export type { DurableWorker, WorkerOptions } from './core/worker'
-export { deliveryId, makeOwnerId, parseDeliveryId, queueNameFor, sliceIdempotencyKey } from './core/ids'
+export { PORTABLE_QUEUE_NAME, deliveryId, makeOwnerId, parseDeliveryId, queueNameFor, sliceIdempotencyKey } from './core/ids'
 
 export type {
   BindOptions,
@@ -83,3 +83,9 @@ export type {
 } from './transport/types'
 export { MemoryTransport } from './transport/memory'
 export type { MemoryFaults } from './transport/memory'
+export { BullMQTransport } from './transport/bullmq'
+export type { BullMQTransportOptions } from './transport/bullmq'
+export { PgBossTransport } from './transport/pgboss'
+export type { PgBossTransportOptions } from './transport/pgboss'
+export { transportConformance } from './transport/conformance'
+export type { ConformanceHooks } from './transport/conformance'

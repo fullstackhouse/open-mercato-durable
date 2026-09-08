@@ -24,10 +24,21 @@ export function parseDeliveryId(id: string): Delivery | null {
   return { jobId: match[1]!, seq: Number(match[2]), redrives: Number(match[3]) }
 }
 
-/** Queues are named per kind group so one worker process can bind a subset of kinds. */
+/**
+ * Queues are named per kind group so one worker process can bind a subset of kinds.
+ *
+ * A period, not a colon. pg-boss validates queue names against
+ * `[alphanumeric, _, -, ., /]` and rejects a colon outright, and BullMQ gives `:` special
+ * meaning inside its own Redis keys. One name has to work on every adapter — a per-adapter
+ * rewrite would mean the queue an operator sees in the code is not the queue they can find
+ * in the broker.
+ */
 export function queueNameFor(group: string): string {
-  return `durable-work:${group}`
+  return `durable-work.${group}`
 }
+
+/** The characters every supported broker accepts in a queue name. */
+export const PORTABLE_QUEUE_NAME = /^[A-Za-z0-9_\-./]+$/
 
 /** The idempotency key handed to a slice, and the one it should forward to any external
  *  side effect. Stable across retries of the same slice, different for the next slice. */

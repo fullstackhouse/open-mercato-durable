@@ -35,7 +35,7 @@ afterAll(async () => {
   await env?.stop()
 })
 
-const QUEUE = 'durable-work:test'
+const QUEUE = 'durable-work.test'
 
 async function seed(scope: Scope, kind: ScriptedKind) {
   const { job } = await store.insertJob(sql, randomUUID(), scope, { kind: kind.kind }, QUEUE)

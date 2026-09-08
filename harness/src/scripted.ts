@@ -60,7 +60,7 @@ export function scriptedKind(options: ScriptedKindOptions): ScriptedKind {
 
   const definition: KindDefinition<unknown, ScriptedCheckpoint> = {
     kind: options.kind ?? 'test.scripted',
-    queue: options.queue ?? 'durable-work:test',
+    queue: options.queue ?? 'durable-work.test',
     lease: options.lease,
     budget: options.budget,
     retry: options.retry,

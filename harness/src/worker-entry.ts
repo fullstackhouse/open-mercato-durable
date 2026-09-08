@@ -26,7 +26,7 @@ const sql = await connect(env('REPLICA_PG_URL'), { max: 2 })
 
 const kind = resolveKind<unknown, { done: number }>({
   kind: 'test.replica',
-  queue: 'durable-work:test',
+  queue: 'durable-work.test',
   orphanPolicy: 'redrive',
   lease: { ttlMs: 6_000 },
   async step(ctx): Promise<SliceOutcome> {

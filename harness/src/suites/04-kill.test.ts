@@ -34,7 +34,7 @@ function replicaRegistry() {
   registry.register(
     resolveKind({
       kind: 'test.replica',
-      queue: 'durable-work:test',
+      queue: 'durable-work.test',
       orphanPolicy: 'redrive',
       lease: { ttlMs: 6_000 },
       step: async () => 'drained',
@@ -44,7 +44,7 @@ function replicaRegistry() {
 }
 
 async function seed(scope: Scope) {
-  const { job } = await store.insertJob(sql, randomUUID(), scope, { kind: 'test.replica' }, 'durable-work:test')
+  const { job } = await store.insertJob(sql, randomUUID(), scope, { kind: 'test.replica' }, 'durable-work.test')
   return job
 }
 

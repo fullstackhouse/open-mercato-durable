@@ -28,7 +28,7 @@ afterAll(async () => {
 })
 
 const TTL = 60_000
-const QUEUE = 'durable-work:test'
+const QUEUE = 'durable-work.test'
 
 async function newJob(scope: Scope, overrides: Partial<Parameters<typeof store.insertJob>[3]> = {}) {
   const { job } = await store.insertJob(sql, randomUUID(), scope, { kind: 'test.kind', ...overrides }, QUEUE)

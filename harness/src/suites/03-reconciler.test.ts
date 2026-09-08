@@ -36,7 +36,7 @@ afterAll(async () => {
   await env?.stop()
 })
 
-const QUEUE = 'durable-work:test'
+const QUEUE = 'durable-work.test'
 
 /** A registry and an enqueue spy per test, so a reconciler pass is inspectable in isolation. */
 function harness(options: ScriptedKindOptions & { kind?: string; scope: Scope }) {
