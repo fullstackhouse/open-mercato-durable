@@ -15,10 +15,26 @@ Pre-release. See [`docs/roadmap.md`](docs/roadmap.md) for the phase we are in an
 
 ## Using the packages
 
-```bash
-yarn mercato module add @fullstackhouse/open-mercato-durable-work
-yarn mercato module add @fullstackhouse/open-mercato-data-sync-durable
+Not on npm yet — install from this repository. Both build on pack, so a git dependency delivers
+a built package, and HTTPS needs no credentials, which is what makes it work in CI without a
+deploy key.
+
+```yaml
+# .yarnrc.yml
+approvedGitRepositories:
+  - "https://github.com/fullstackhouse/*"
 ```
+
+```bash
+REPO="git+https://github.com/fullstackhouse/open-mercato-durable.git"
+yarn add \
+  "@fullstackhouse/open-mercato-durable-work@$REPO#workspace=@fullstackhouse/open-mercato-durable-work" \
+  "@fullstackhouse/open-mercato-data-sync-durable@$REPO#workspace=@fullstackhouse/open-mercato-data-sync-durable"
+```
+
+Add both: `durable-work` is a peer of the adopter, and exactly one copy must be installed —
+it exports a process-wide registry, and a second copy would leave job kinds registered in one
+while the worker reads the other.
 
 `src/modules.ts`:
 

@@ -146,8 +146,11 @@ which is worth recording because both would have looked identical from the outsi
   It also surfaced a real publishing constraint: `yarn pack` rewrites `workspace:^` into a
   version range, so `data-sync-durable` ships depending on `durable-work@^0.0.1`. **`durable-work`
   must be published first**, and its version must be one that exists on npm.
-- **The release itself** (`durable-work@0.1.0`, `data-sync-durable@0.1.0`) and flipping the
-  repo public. Both are outward-facing and irreversible, so they are Jacek's call rather than
-  something to do unasked.
+- **The npm release** (`durable-work@0.1.0`, `data-sync-durable@0.1.0`). Deliberately deferred:
+  the repository is public and both packages install straight from git with no credentials, so
+  a registry buys `mercato module add` ergonomics and outside consumption, not access. When it
+  happens, `durable-work` must go first — the adopter's peer range has to be satisfiable.
+
+  The repo went public on 2026-09-08.
 - **Phase 9, the first production rollout.** On hold until the adopter is ready; it is a
   separate plan.

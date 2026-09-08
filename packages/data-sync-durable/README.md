@@ -13,36 +13,31 @@ A `data_sync` run is one long stream over a cursor. On core's engine:
 
 ## Install
 
-```bash
-yarn mercato module add @fullstackhouse/open-mercato-durable-work
-yarn mercato module add @fullstackhouse/open-mercato-data-sync-durable
-```
-
-<details>
-<summary>Installing straight from the repository, without a registry</summary>
-
-Both packages build on pack, so a git dependency delivers a built package:
+The packages are not on npm yet, so install them from this repository. Both build on pack, so a
+git dependency delivers a built package, and yarn pins the resolved commit in your lockfile.
 
 ```yaml
 # .yarnrc.yml
 approvedGitRepositories:
-  - "ssh://git@github.com/fullstackhouse/*"
+  - "https://github.com/fullstackhouse/*"
 ```
 
 ```bash
-REPO="git+ssh://git@github.com/fullstackhouse/open-mercato-durable.git"
+REPO="git+https://github.com/fullstackhouse/open-mercato-durable.git"
 yarn add \
   "@fullstackhouse/open-mercato-durable-work@$REPO#workspace=@fullstackhouse/open-mercato-durable-work" \
   "@fullstackhouse/open-mercato-data-sync-durable@$REPO#workspace=@fullstackhouse/open-mercato-data-sync-durable"
 ```
 
-Add both, always. `durable-work` is a **peer** of this package, and installing exactly one copy
-of it is not a tidiness preference: it exports a process-wide registry, and a second copy would
-mean kinds register into one and the worker reads the other — silently.
+HTTPS needs no credentials, which is what makes this work in CI without a deploy key. Add
+`&commit=<sha>` to pin explicitly; otherwise yarn records the resolved commit in the lockfile
+and re-resolves only when you ask it to.
 
-Pin a commit with `&commit=<sha>` if you want a git dependency to be reproducible; a bare
-branch reference re-resolves.
-</details>
+**Add both, always.** `durable-work` is a *peer* of the adopter, and installing exactly one copy
+is not tidiness: it exports a process-wide registry, and a second copy would mean job kinds
+register into one while the worker reads the other — silently.
+
+Once the packages are published this becomes `yarn mercato module add @fullstackhouse/…`.
 
 `src/modules.ts` — the whole change is one `from`:
 
