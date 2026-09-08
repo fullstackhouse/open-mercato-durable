@@ -39,24 +39,45 @@ done
 
 step "Checking what the tarballs actually contain"
 # The files a host resolves through, listed explicitly. A `files` array that forgets one of
-# these produces a package that installs cleanly and then cannot be loaded.
-check_member() {
-  tar -tzf "$1" | grep -qx "package/$2" || fail "$(basename "$1"): missing $2"
-  pass "$(basename "$1" .tgz): $2"
+# these produces a package that installs cleanly and then cannot be loaded. `generated/` is the
+# one most easily lost: without it the module contributes no entity ids, and only a real install
+# would ever notice, because in the workspace the CLI reads the source instead.
+# Listed once into a variable rather than piped per check.
+#
+# `tar … | grep -q` looks obvious and is wrong under `pipefail`: grep exits on the first match,
+# tar gets SIGPIPE, and the pipeline's status becomes tar's failure — so a check that *matched*
+# reports as a miss. GNU tar does this and BSD tar does not, which is why it passed on macOS and
+# failed on the first CI run.
+list_members() { tar -tzf "$1"; }
+require_members() {
+  local tarball="$1"
+  shift
+  local listing
+  listing="$(list_members "$tarball")"
+  local member
+  for member in "$@"; do
+    if printf '%s\n' "$listing" | grep -qx "package/$member"; then
+      pass "$(basename "$tarball" .tgz): $member"
+    else
+      fail "$(basename "$tarball"): missing $member"
+    fi
+  done
 }
-check_member "$WORK/durable-work.tgz" "dist/index.js"
-check_member "$WORK/durable-work.tgz" "dist/modules/durable_work/index.js"
-check_member "$WORK/durable-work.tgz" "dist/modules/durable_work/di.js"
-check_member "$WORK/durable-work.tgz" "dist/modules/durable_work/cli.js"
-check_member "$WORK/durable-work.tgz" "dist/modules/durable_work/migrations/Migration20260908120000.js"
-# The entity descriptor: without it the module contributes no entity ids, and only a real
-# install would ever notice, because in the workspace the CLI reads the source instead.
-check_member "$WORK/durable-work.tgz" "generated/entities.ids.generated.ts"
-check_member "$WORK/data-sync-durable.tgz" "dist/index.js"
-check_member "$WORK/data-sync-durable.tgz" "dist/modules/data_sync/index.js"
-check_member "$WORK/data-sync-durable.tgz" "dist/modules/data_sync/di.js"
-check_member "$WORK/data-sync-durable.tgz" "dist/modules/data_sync/api/run.js"
-check_member "$WORK/data-sync-durable.tgz" "generated/entities.ids.generated.ts"
+
+require_members "$WORK/durable-work.tgz" \
+  "dist/index.js" \
+  "dist/modules/durable_work/index.js" \
+  "dist/modules/durable_work/di.js" \
+  "dist/modules/durable_work/cli.js" \
+  "dist/modules/durable_work/migrations/Migration20260908120000.js" \
+  "generated/entities.ids.generated.ts"
+
+require_members "$WORK/data-sync-durable.tgz" \
+  "dist/index.js" \
+  "dist/modules/data_sync/index.js" \
+  "dist/modules/data_sync/di.js" \
+  "dist/modules/data_sync/api/run.js" \
+  "generated/entities.ids.generated.ts"
 
 step "Installing the tarballs into a throwaway package"
 mkdir -p "$WORK/host"
