@@ -132,3 +132,17 @@ which is worth recording because both would have looked identical from the outsi
   between a batch's write and its checkpoint commit will redo that batch, which is the
   documented cost the adapter contract asks adapters to tolerate. Repetition is reported;
   **loss** is the failure, so the invariant is now that no batch is ever skipped.
+
+## What is not done
+
+- **The install lane.** `scripts/install-lane.sh` and the nightly CI job that packs both
+  packages with `yarn pack`, installs the tarballs into a fresh `create-mercato-app` and runs
+  the same Playwright specs. Everything today is verified against the workspace link, which
+  proves the code but not the *published shape* — an `exports` map or a `files` list can be
+  wrong in a way no workspace test can see. This is the last gap before a release means
+  anything.
+- **The release itself** (`durable-work@0.1.0`, `data-sync-durable@0.1.0`) and flipping the
+  repo public. Both are outward-facing and irreversible, so they are Jacek's call rather than
+  something to do unasked.
+- **Phase 9, groomershop.** On hold by decision D7 until the adopter is ready; it is a separate
+  plan.
