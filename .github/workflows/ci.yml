@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  packages:
+    name: packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable
+      - run: yarn install --immutable
+      # `generate` is run between two builds on purpose: the sandbox's registry is generated
+      # from the packages' dist, and typecheck then reads what generate produced.
+      - run: yarn build:packages
+      - run: yarn gen:mirror:check
+      - run: yarn workspace sandbox generate
+      - run: yarn build:packages
+      - run: yarn typecheck
+      - run: yarn lint
+      - run: yarn test
+      - run: yarn check:dep-versions
+
+  harness:
+    name: harness (${{ matrix.transport }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        transport: [memory, bullmq, pgboss]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: durable_harness
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    env:
+      DURABLE_TRANSPORT: ${{ matrix.transport }}
+      HARNESS_DATABASE_URL: postgres://postgres:postgres@localhost:5432/durable_harness
+      HARNESS_REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn build:packages
+      - run: yarn test:harness
+
+  e2e-sandbox:
+    name: e2e (sandbox)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn build:packages
+      # The OM ephemeral runner brings up its own Postgres and app via testcontainers.
+      # The durable worker is hosted in-process here; failure injection lives in harness/.
+      - run: yarn workspace sandbox exec playwright install --with-deps chromium
+      - run: yarn test:integration:ephemeral
+        env:
+          DURABLE_WORK_INPROCESS_WORKER: '1'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            apps/sandbox/playwright-report
+            apps/sandbox/test-results
+          retention-days: 7
+
+  compat:
+    name: compat (${{ matrix.channel }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [latest, develop]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable
+      - run: yarn install
+      - run: yarn platform:sync --channel ${{ matrix.channel }}
+      - run: yarn install --no-immutable
+      # The mirror is regenerated against the channel's core: a drift here is the signal
+      # that this channel needs its own data-sync-durable release (ADR 0006).
+      - run: yarn gen:mirror
+      - run: git diff --exit-code --stat packages/data-sync-durable
+      - run: yarn build:packages
+      - run: yarn workspace sandbox generate
+      - run: yarn typecheck
+      - run: yarn test

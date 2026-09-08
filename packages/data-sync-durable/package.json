@@ -1,0 +1,131 @@
+{
+  "name": "@fullstackhouse/open-mercato-data-sync-durable",
+  "version": "0.7.0-alpha.0",
+  "description": "Drop-in replacement for Open Mercato's core data_sync module that runs sync runs as durable at-least-once work (via @fullstackhouse/open-mercato-durable-work): survives deploys and worker kills, resumes from the committed cursor, retries transient errors at the batch, never leaves a run 'running' forever. Same tables, API, adapter contract, events and UI as core; swap one line in modules.ts.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "license": "MIT",
+  "author": "Full Stack House",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fullstackhouse/open-mercato-durable.git",
+    "directory": "packages/data-sync-durable"
+  },
+  "keywords": [
+    "open-mercato",
+    "data-sync",
+    "durable",
+    "at-least-once",
+    "background-jobs"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "generated",
+    "README.md"
+  ],
+  "scripts": {
+    "gen:mirror": "node scripts/gen-mirror.mjs",
+    "prebuild": "node scripts/gen-mirror.mjs --check",
+    "build": "node build.mjs",
+    "watch": "node watch.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src scripts"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./*.ts": {
+      "types": "./src/*.ts",
+      "default": "./dist/*.js"
+    },
+    "./*.tsx": {
+      "types": "./src/*.tsx",
+      "default": "./dist/*.js"
+    },
+    "./*.json": "./src/*.json",
+    "./*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx"
+      ],
+      "default": "./dist/*.js"
+    },
+    "./*/*.json": "./src/*/*.json",
+    "./*/*": {
+      "types": [
+        "./src/*/*.ts",
+        "./src/*/*.tsx"
+      ],
+      "default": "./dist/*/*.js"
+    },
+    "./*/*/*.json": "./src/*/*/*.json",
+    "./*/*/*": {
+      "types": [
+        "./src/*/*/*.ts",
+        "./src/*/*/*.tsx"
+      ],
+      "default": "./dist/*/*/*.js"
+    },
+    "./*/*/*/*.json": "./src/*/*/*/*.json",
+    "./*/*/*/*": {
+      "types": [
+        "./src/*/*/*/*.ts",
+        "./src/*/*/*/*.tsx"
+      ],
+      "default": "./dist/*/*/*/*.js"
+    },
+    "./*/*/*/*/*.json": "./src/*/*/*/*/*.json",
+    "./*/*/*/*/*": {
+      "types": [
+        "./src/*/*/*/*/*.ts",
+        "./src/*/*/*/*/*.tsx"
+      ],
+      "default": "./dist/*/*/*/*/*.js"
+    }
+  },
+  "dependencies": {
+    "@fullstackhouse/open-mercato-durable-work": "workspace:^"
+  },
+  "peerDependencies": {
+    "@mikro-orm/core": ">=7.0.0",
+    "@mikro-orm/migrations": ">=7.0.0",
+    "@mikro-orm/postgresql": ">=7.0.0",
+    "@open-mercato/core": ">=0.7.0 <0.8.0",
+    "@open-mercato/queue": ">=0.7.0 <0.8.0",
+    "@open-mercato/shared": ">=0.7.0 <0.8.0",
+    "@open-mercato/ui": ">=0.7.0 <0.8.0",
+    "next": ">=15.0.0",
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0",
+    "zod": ">=3.25.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@mikro-orm/core": "^7.1.8",
+    "@mikro-orm/migrations": "^7.1.8",
+    "@mikro-orm/postgresql": "^7.1.8",
+    "@open-mercato/core": "0.7.0",
+    "@open-mercato/queue": "0.7.0",
+    "@open-mercato/shared": "0.7.0",
+    "@open-mercato/ui": "0.7.0",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.0.0",
+    "awilix": "^13.0.5",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.0.0",
+    "glob": "^13.0.6",
+    "globals": "^16.0.0",
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0",
+    "zod": "^4.4.3"
+  }
+}

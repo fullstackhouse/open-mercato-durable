@@ -1,0 +1,4 @@
+{
+  "$comment": "Files under src/modules/data_sync that are OURS (not generated stubs). gen-mirror never overwrites them and --check flags when the core file they shadow changes. Phase 0 spike: empty — every file is a pure re-export stub.",
+  "files": []
+}

@@ -1,0 +1,16 @@
+export const id = "id";
+export const integration_id = "integration_id";
+export const entity_type = "entity_type";
+export const direction = "direction";
+export const schedule_type = "schedule_type";
+export const schedule_value = "schedule_value";
+export const timezone = "timezone";
+export const full_sync = "full_sync";
+export const is_enabled = "is_enabled";
+export const scheduled_job_id = "scheduled_job_id";
+export const last_run_at = "last_run_at";
+export const organization_id = "organization_id";
+export const tenant_id = "tenant_id";
+export const created_at = "created_at";
+export const updated_at = "updated_at";
+export const deleted_at = "deleted_at";

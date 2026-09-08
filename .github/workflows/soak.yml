@@ -1,0 +1,64 @@
+name: Soak
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: Soak duration in minutes
+        default: '10'
+      replicas:
+        description: Worker replicas
+        default: '3'
+
+jobs:
+  soak:
+    name: 3-replica kill soak (${{ matrix.transport }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        transport: [bullmq, pgboss]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: durable_soak
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    env:
+      DURABLE_TRANSPORT: ${{ matrix.transport }}
+      HARNESS_DATABASE_URL: postgres://postgres:postgres@localhost:5432/durable_soak
+      HARNESS_REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn build:packages
+      - name: Soak
+        run: >-
+          yarn workspace @fullstackhouse/durable-harness soak
+          --replicas ${{ inputs.replicas || '3' }}
+          --minutes ${{ inputs.minutes || '10' }}
+          --transport ${{ matrix.transport }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: soak-${{ matrix.transport }}
+          path: harness/.artifacts
+          retention-days: 14

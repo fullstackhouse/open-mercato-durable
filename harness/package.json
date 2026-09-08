@@ -1,0 +1,32 @@
+{
+  "name": "@fullstackhouse/durable-harness",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Failure-mode harness for @fullstackhouse/open-mercato-durable-work: real Postgres + Redis via testcontainers, child-process replicas, kill/stall/lost-lock scenarios, parameterised by transport adapter.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "soak": "tsx src/soak/three-replica-kill.soak.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@fullstackhouse/open-mercato-durable-work": "workspace:*"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@testcontainers/postgresql": "^11.0.0",
+    "@testcontainers/redis": "^11.0.0",
+    "@types/node": "^24.10.1",
+    "@types/pg": "^8.20.0",
+    "eslint": "^9.0.0",
+    "globals": "^16.0.0",
+    "pg": "^8.23.0",
+    "testcontainers": "^11.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0"
+  }
+}

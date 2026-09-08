@@ -1,0 +1,65 @@
+# Local infrastructure for the sandbox app, the harness and preview publishes.
+#
+#   docker compose up -d                 # postgres + redis (+ verdaccio)
+#   docker compose stop verdaccio        # registry is only needed for `yarn publish:preview`
+#
+# Ports are deliberately off the defaults (5480 / 6480): this machine usually has other
+# Open Mercato apps running on 5432/6379. Override with POSTGRES_PORT / REDIS_PORT.
+#
+# The OM ephemeral test runner (`yarn mercato test:integration`) and the harness
+# start their own throwaway containers via testcontainers and do NOT use these.
+services:
+  postgres:
+    image: pgvector/pgvector:pg17-trixie
+    container_name: om-durable-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-open-mercato}
+    ports:
+      - "${POSTGRES_PORT:-5480}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: om-durable-redis
+    ports:
+      - "${REDIS_PORT:-6480}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  verdaccio:
+    image: verdaccio/verdaccio:5
+    container_name: om-durable-verdaccio
+    ports:
+      - "4873:4873"
+    volumes:
+      - verdaccio_storage:/verdaccio/storage
+      - verdaccio_conf:/verdaccio/conf
+    environment:
+      VERDACCIO_APPDIR: /verdaccio
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:4873/-/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres_data:
+    name: om-durable-postgres-data
+  redis_data:
+    name: om-durable-redis-data
+  verdaccio_storage:
+  verdaccio_conf:

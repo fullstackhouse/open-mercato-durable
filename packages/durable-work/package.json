@@ -1,0 +1,138 @@
+{
+  "name": "@fullstackhouse/open-mercato-durable-work",
+  "version": "0.0.1",
+  "description": "Durable at-least-once background work for Open Mercato apps: a leased job record in Postgres with epoch fencing, bounded resumable slices, a server-side reconciler, fenced cancel and an operator API. Pluggable transport (BullMQ or pg-boss).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "license": "MIT",
+  "author": "Full Stack House",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fullstackhouse/open-mercato-durable.git",
+    "directory": "packages/durable-work"
+  },
+  "keywords": [
+    "open-mercato",
+    "background-jobs",
+    "durable",
+    "at-least-once",
+    "queue",
+    "bullmq",
+    "pg-boss"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node watch.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./*.ts": {
+      "types": "./src/*.ts",
+      "default": "./dist/*.js"
+    },
+    "./*.tsx": {
+      "types": "./src/*.tsx",
+      "default": "./dist/*.js"
+    },
+    "./*.json": "./src/*.json",
+    "./*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx"
+      ],
+      "default": "./dist/*.js"
+    },
+    "./*/*.json": "./src/*/*.json",
+    "./*/*": {
+      "types": [
+        "./src/*/*.ts",
+        "./src/*/*.tsx"
+      ],
+      "default": "./dist/*/*.js"
+    },
+    "./*/*/*.json": "./src/*/*/*.json",
+    "./*/*/*": {
+      "types": [
+        "./src/*/*/*.ts",
+        "./src/*/*/*.tsx"
+      ],
+      "default": "./dist/*/*/*.js"
+    },
+    "./*/*/*/*.json": "./src/*/*/*/*.json",
+    "./*/*/*/*": {
+      "types": [
+        "./src/*/*/*/*.ts",
+        "./src/*/*/*/*.tsx"
+      ],
+      "default": "./dist/*/*/*/*.js"
+    },
+    "./*/*/*/*/*.json": "./src/*/*/*/*/*.json",
+    "./*/*/*/*/*": {
+      "types": [
+        "./src/*/*/*/*/*.ts",
+        "./src/*/*/*/*/*.tsx"
+      ],
+      "default": "./dist/*/*/*/*/*.js"
+    }
+  },
+  "peerDependencies": {
+    "@mikro-orm/core": ">=7.0.0",
+    "@mikro-orm/migrations": ">=7.0.0",
+    "@mikro-orm/postgresql": ">=7.0.0",
+    "@open-mercato/core": ">=0.7.0 <0.8.0",
+    "@open-mercato/shared": ">=0.7.0 <0.8.0",
+    "bullmq": ">=6.0.0 <7.0.0",
+    "ioredis": ">=5.0.0",
+    "next": ">=15.0.0",
+    "pg": ">=8.0.0",
+    "pg-boss": ">=12.0.0 <13.0.0",
+    "zod": ">=3.25.0"
+  },
+  "peerDependenciesMeta": {
+    "bullmq": {
+      "optional": true
+    },
+    "ioredis": {
+      "optional": true
+    },
+    "pg-boss": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@mikro-orm/core": "^7.1.8",
+    "@mikro-orm/migrations": "^7.1.8",
+    "@mikro-orm/postgresql": "^7.1.8",
+    "@open-mercato/core": "0.7.0",
+    "@open-mercato/shared": "0.7.0",
+    "@types/node": "^24.10.1",
+    "@types/pg": "^8.20.0",
+    "awilix": "^13.0.5",
+    "bullmq": "^6.3.4",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.0.0",
+    "glob": "^13.0.6",
+    "globals": "^16.0.0",
+    "ioredis": "^5.11.1",
+    "next": "16.3.0",
+    "pg": "^8.23.0",
+    "pg-boss": "^12.30.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0",
+    "zod": "^4.4.3"
+  }
+}
