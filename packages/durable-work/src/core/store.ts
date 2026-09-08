@@ -687,37 +687,49 @@ export async function recordEnqueue(sql: SqlExecutor, id: string, queueJobId: st
  *  slice of the candidates rather than one blocking the other or both acting on the same row. */
 const SKIP_LOCKED = 'for update skip locked'
 
-export async function selectCancelling(tx: SqlExecutor, limit: number): Promise<DurableJob[]> {
+/** The reconciler is system-wide by default. The optional tenant filter exists so a fleet can
+ *  shard the loop — one worker per tenant group — rather than having every worker scan every
+ *  tenant's rows and skip-lock its way past them. */
+export async function selectCancelling(tx: SqlExecutor, limit: number, tenantId?: string): Promise<DurableJob[]> {
   const result = await tx.query<Row>(
     `select ${COLUMNS} from ${TABLE}
       where cancel_requested_at is not null and status in ('pending','running')
+        and ($2::uuid is null or tenant_id = $2)
       order by cancel_requested_at asc limit $1 ${SKIP_LOCKED}`,
-    [limit],
+    [limit, tenantId ?? null],
   )
   return result.rows.map(mapRow)
 }
 
-export async function selectOrphans(tx: SqlExecutor, opts: { graceMs: number; pendingTtlMs: number; limit: number }): Promise<DurableJob[]> {
+export async function selectOrphans(
+  tx: SqlExecutor,
+  opts: { graceMs: number; pendingTtlMs: number; limit: number; tenantId?: string },
+): Promise<DurableJob[]> {
   const result = await tx.query<Row>(
     `select ${COLUMNS} from ${TABLE}
       where status = 'running'
         and lease_expires_at < now() - ($1::bigint * interval '1 millisecond')
         and (next_run_at is null or next_run_at < now() - ($2::bigint * interval '1 millisecond'))
         and cancel_requested_at is null
+        and ($4::uuid is null or tenant_id = $4)
       order by lease_expires_at asc limit $3 ${SKIP_LOCKED}`,
-    [opts.graceMs, opts.pendingTtlMs, opts.limit],
+    [opts.graceMs, opts.pendingTtlMs, opts.limit, opts.tenantId ?? null],
   )
   return result.rows.map(mapRow)
 }
 
-export async function selectStalePending(tx: SqlExecutor, opts: { pendingTtlMs: number; limit: number }): Promise<DurableJob[]> {
+export async function selectStalePending(
+  tx: SqlExecutor,
+  opts: { pendingTtlMs: number; limit: number; tenantId?: string },
+): Promise<DurableJob[]> {
   const result = await tx.query<Row>(
     `select ${COLUMNS} from ${TABLE}
       where status = 'pending'
         and cancel_requested_at is null
         and greatest(pending_since, coalesce(next_run_at, pending_since)) < now() - ($1::bigint * interval '1 millisecond')
+        and ($3::uuid is null or tenant_id = $3)
       order by pending_since asc limit $2 ${SKIP_LOCKED}`,
-    [opts.pendingTtlMs, opts.limit],
+    [opts.pendingTtlMs, opts.limit, opts.tenantId ?? null],
   )
   return result.rows.map(mapRow)
 }

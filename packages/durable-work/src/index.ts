@@ -65,6 +65,10 @@ export { runSlice } from './core/run-slice'
 export type { RunSliceDeps, RunSliceResult } from './core/run-slice'
 export { DomainMirrorMismatchError, runAfterTransition, runTerminalTransition } from './core/terminal'
 export type { TerminalResult, Transition } from './core/terminal'
+export { reconcileOnce } from './core/reconciler'
+export type { ReconcileReport, ReconcilerDeps } from './core/reconciler'
+export { RECONCILE_QUEUE, RECONCILE_TICK_ID, enqueueJob, startWorker } from './core/worker'
+export type { DurableWorker, WorkerOptions } from './core/worker'
 export { deliveryId, makeOwnerId, parseDeliveryId, queueNameFor, sliceIdempotencyKey } from './core/ids'
 
 export type {
