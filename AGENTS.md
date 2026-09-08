@@ -49,14 +49,22 @@ the stub format, that test is the contract.
 ## Checks
 
 ```bash
-yarn build:packages && yarn generate && yarn typecheck && yarn lint && yarn test
-yarn gen:mirror:check
-yarn test:harness                       # DURABLE_TRANSPORT=memory|bullmq|pgboss
-yarn test:integration:ephemeral         # e2e against a disposable sandbox (needs Docker)
+yarn verify        # the `packages` CI lane, step for step
+yarn verify:all    # + failure harness + the e2e ephemeral run (needs Docker)
 ```
 
-`yarn generate` must be run after `build:packages` and before `typecheck`: the sandbox's
-`.mercato/generated` is an input to both.
+**Run these before pushing, not after.** CI is the backstop. The e2e lane in particular spends
+six minutes booting a real app before it can tell you anything, and reports failures buried in
+progress output — the same failure takes one local run to see.
+
+Order matters and `verify` encodes it: `build:packages → generate → build:packages → typecheck`.
+The sandbox's `.mercato/generated` is generated from the packages' `dist` and is then an input
+to typecheck and to the app.
+
+Two lanes cannot be run from a plain `yarn verify`: `harness` needs Postgres and Redis
+(`docker compose up -d`, then `DURABLE_TRANSPORT=bullmq yarn test:harness`), and `compat` repins
+every `@open-mercato` package to a channel — do that on a clean tree and `git checkout .`
+afterwards.
 
 ## Conventions
 

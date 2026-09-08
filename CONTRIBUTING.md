@@ -33,10 +33,13 @@ rather than obvious ones. `yarn watch` keeps the first step live while you work.
 Before pushing:
 
 ```bash
-yarn typecheck && yarn lint && yarn test && yarn gen:mirror:check && yarn check:dep-versions
-yarn test:harness                   # DURABLE_TRANSPORT=memory|bullmq|pgboss
-yarn test:integration:ephemeral     # e2e; brings up its own throwaway Postgres + app
+yarn verify           # exactly the `packages` CI lane, same steps in the same order
+yarn verify:all       # + the failure harness and the e2e ephemeral run (needs Docker)
 ```
+
+Run these locally rather than pushing to see what CI says. CI is the backstop, not the first
+pass: a lane like e2e spends six minutes bringing up a real app before it can tell you
+anything, and its failures arrive buried in progress output.
 
 ## Where a change belongs
 

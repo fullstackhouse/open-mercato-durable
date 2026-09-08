@@ -47,7 +47,9 @@
     "clean": "yarn clean:generated && yarn clean:packages",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "yarn build:packages && changeset publish"
+    "release": "yarn build:packages && changeset publish",
+    "verify": "yarn install --immutable && yarn build:packages && yarn gen:mirror:check && yarn workspace sandbox generate && yarn build:packages && yarn typecheck && yarn lint && yarn test && yarn check:dep-versions && yarn platform:sync:check",
+    "verify:all": "yarn verify && yarn test:harness && yarn test:integration:ephemeral"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

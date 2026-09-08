@@ -23,17 +23,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: corepack enable
-      - run: yarn install --immutable
-      # `generate` is run between two builds on purpose: the sandbox's registry is generated
-      # from the packages' dist, and typecheck then reads what generate produced.
-      - run: yarn build:packages
-      - run: yarn gen:mirror:check
-      - run: yarn workspace sandbox generate
-      - run: yarn build:packages
-      - run: yarn typecheck
-      - run: yarn lint
-      - run: yarn test
-      - run: yarn check:dep-versions
+      # One script, so `yarn verify` locally is the same thing this lane runs — including the
+      # ordering (`generate` between two builds: the sandbox registry comes from the packages'
+      # dist, and typecheck then reads what generate produced).
+      - run: yarn verify
 
   harness:
     name: harness (${{ matrix.transport }})
