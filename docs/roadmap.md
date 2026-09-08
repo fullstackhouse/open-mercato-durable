@@ -25,7 +25,7 @@ a `workflows` adopter.
 | 4 | bullmq adapter | full harness suite on bullmq; SIGTERM drain; tick survives FLUSHALL | done — conformance + tick survives FLUSHALL |
 | 5 | pgboss adapter | full harness suite on pgboss; transactional start rollback leaves nothing | done — conformance + transactional start, mutation-checked |
 | 6 | OM module surface (entity, migration, DI, operator API, CLI, events, progress mirror) | done — exercised against a booted sandbox; `TC-DW-00x` e2e specs pending |
-| 7 | `data-sync-durable` drop-in: decorated run service, kinds, REPLACED set (di, start-run, workers), adopt-on-delivery, compat probe, sandbox `example_sync` | demonstrated against a booted sandbox — see below; `TC-DSD-00x` Playwright specs remain | mostly done |
+| 7 | `data-sync-durable` drop-in: decorated run service, kinds, REPLACED set (di, start-run, workers), adopt-on-delivery, compat probe, sandbox `example_sync` | demonstrated against a booted sandbox — see below; 9 e2e specs green in the ephemeral runner | done |
 | 8 | soak, install lane, docs, release 0.1.0, repo public | soak invariants; install lane green on both channels | |
 | 9 | groomershop staging → prod; `scheduler-durable` | separate plan | |
 
@@ -99,3 +99,12 @@ harness (which talks to Postgres directly):
 3. **The decorated services carried only the overridden methods**, so core's engine failed at
    its first undecorated call (`progressService.startJob is not a function`).
 4. **The module CLI used the wrong shape**, so `mercato durable_work worker` did not exist.
+5. **`insertJob` queried after a constraint violation.** In Postgres a failed statement aborts
+   the whole transaction, so the error path that looked up the existing job or the lock holder
+   worked on an autocommit connection and failed with "current transaction is aborted" on the
+   caller's — which is exactly where `start` is meant to be called. It now checks first and
+   lets the unique indexes close the race.
+6. **Replacing `lib/start-run.ts` redirected nobody.** The mirror's stubs mean core's own route
+   imports core's own sibling, so a run started through `/api/data_sync/run` never reached the
+   durable start path. The route is now wrapped — not copied — so the job is created alongside
+   the run, with core's queue delivery still the backstop if that fails.

@@ -24,7 +24,7 @@
     "dev": "yarn workspace sandbox dev",
     "dev:worker": "yarn workspace sandbox mercato durable_work worker",
     "start": "turbo run start --filter='./apps/sandbox'",
-    "typecheck": "turbo run typecheck --filter='./packages/*' --filter='./harness'",
+    "typecheck": "turbo run typecheck --filter='./packages/*' --filter='./harness' --filter='./apps/sandbox'",
     "lint": "turbo run lint --filter='./packages/*' --filter='./harness'",
     "test": "turbo run test --filter='./packages/*'",
     "test:harness": "yarn workspace @fullstackhouse/durable-harness test",

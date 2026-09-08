@@ -13,7 +13,6 @@
 //      current counters — never from a value the caller read earlier.
 
 import {
-  IDEMPOTENCY_INDEX,
   LOCK_KEY_INDEX,
   NO_ORG,
   TABLE,
@@ -153,6 +152,23 @@ export async function insertJob(
     input.totalCount ?? null,
   ]
 
+  // Checked before the insert, not after the violation.
+  //
+  // A failed statement aborts the whole transaction in Postgres — every subsequent command is
+  // refused until it ends. So a catch that queries for the existing job, or for the lock
+  // holder, works on an autocommit connection and fails on the caller's transaction, which is
+  // exactly where `start` is supposed to be called. The unique indexes are still the
+  // authority: they close the race between this check and the insert, and a violation that
+  // survives it is raised without touching the connection again.
+  if (input.idempotencyKey) {
+    const existing = await findByIdempotencyKey(sql, scope, input.idempotencyKey)
+    if (existing) return { job: existing, created: false }
+  }
+  if (input.lockKey) {
+    const holder = await findLiveByLockKey(sql, scope, input.lockKey)
+    if (holder) throw new LockKeyHeldError(input.lockKey, holder.id)
+  }
+
   try {
     const inserted = await sql.query<Row>(
       `insert into ${TABLE} (
@@ -168,15 +184,11 @@ export async function insertJob(
     )
     return { job: mapRow(inserted.rows[0]!), created: true }
   } catch (error) {
-    // Re-issuing the same idempotency key is not an error: it is the caller asking for the
-    // job they already started, which is what makes `start` safe to retry.
-    if (input.idempotencyKey && isUniqueViolation(error, IDEMPOTENCY_INDEX)) {
-      const existing = await findByIdempotencyKey(sql, scope, input.idempotencyKey)
-      if (existing) return { job: existing, created: false }
-    }
+    // Lost the race with a concurrent start. No further query is issued here — the transaction
+    // is aborted, so any lookup would fail with "current transaction is aborted" and bury the
+    // real cause. The holder's id is unavailable in this narrow case; the refusal is not.
     if (input.lockKey && isUniqueViolation(error, LOCK_KEY_INDEX)) {
-      const holder = await findLiveByLockKey(sql, scope, input.lockKey)
-      throw new LockKeyHeldError(input.lockKey, holder?.id)
+      throw new LockKeyHeldError(input.lockKey)
     }
     throw error
   }

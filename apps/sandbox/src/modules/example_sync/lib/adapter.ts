@@ -56,7 +56,9 @@ export const exampleSyncAdapter: DataSyncAdapter = {
   persistsSharedCursor: () => false,
 
   async getMapping(): Promise<DataMapping> {
-    return { entityType: EXAMPLE_ENTITY, fields: [] }
+    // Matched on the external id, which is what makes a replayed batch an upsert rather
+    // than a duplicate — the property core's adapter contract asks every adapter to have.
+    return { entityType: EXAMPLE_ENTITY, fields: [], matchStrategy: 'externalId' }
   },
 
   async getInitialCursor() {

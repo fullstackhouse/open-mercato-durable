@@ -6,7 +6,6 @@
     "api/mappings/[id]/route.ts": "7b3fb917db7bd831",
     "api/mappings/route.ts": "5551bc5ff61dfebb",
     "api/options.ts": "bff527b4061b6c2b",
-    "api/run.ts": "0eda5b6869a0b95d",
     "api/runs.ts": "a2024a96d896c814",
     "api/runs/[id]/cancel.ts": "1c99c66183d994ae",
     "api/runs/[id]/retry.ts": "cf6ea67efcebdeb9",
@@ -50,6 +49,7 @@
     "workers/sync-scheduled.ts": "bd1c585595bc7148"
   },
   "replaced": {
+    "api/run.ts": "0eda5b6869a0b95d",
     "di.ts": "d351534bd20b2b29",
     "lib/start-run.ts": "74081590458b202b",
     "workers/sync-export.ts": "a23cad4d03dd42da",

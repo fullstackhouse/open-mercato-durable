@@ -76,6 +76,38 @@ describe('creation', () => {
     expect(second.created).toBe(true)
   })
 
+  it('refuses a held lock key from inside a transaction, without poisoning it', async () => {
+    // The failure this guards: in Postgres a constraint violation aborts the whole transaction,
+    // so an error path that then queries for the existing job or the lock holder fails with
+    // "current transaction is aborted" and buries the real cause. `start` is meant to be called
+    // inside the caller's transaction, so that is the normal case, not an edge one.
+    const scope = freshScope()
+    const held = await newJob(scope, { lockKey: 'sync:tx' })
+
+    await expect(
+      sql.transaction(async (tx) => {
+        await store.insertJob(tx, randomUUID(), scope, { kind: 'test.kind', lockKey: 'sync:tx' }, QUEUE)
+      }),
+    ).rejects.toThrow(LockKeyHeldError)
+
+    // …and the transaction is still usable, which is what proves nothing was left aborted.
+    const stillWorks = await sql.transaction(async (tx) => {
+      await store.insertJob(tx, randomUUID(), scope, { kind: 'test.kind', lockKey: 'sync:tx-other' }, QUEUE)
+      return store.getJob(tx, held.id, scope)
+    })
+    expect(stillWorks!.id).toBe(held.id)
+  })
+
+  it('returns the existing job for a repeated idempotency key from inside a transaction', async () => {
+    const scope = freshScope()
+    const first = await store.insertJob(sql, randomUUID(), scope, { kind: 'test.kind', idempotencyKey: 'tx-key' }, QUEUE)
+    const second = await sql.transaction((tx) =>
+      store.insertJob(tx, randomUUID(), scope, { kind: 'test.kind', idempotencyKey: 'tx-key' }, QUEUE),
+    )
+    expect(second.created).toBe(false)
+    expect(second.job.id).toBe(first.job.id)
+  })
+
   it('scopes the lock key by organization, treating a null organization as a real value', async () => {
     const tenantId = randomUUID()
     const orgA: Scope = { tenantId, organizationId: randomUUID() }
