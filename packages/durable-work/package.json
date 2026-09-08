@@ -31,6 +31,7 @@
   ],
   "scripts": {
     "build": "node build.mjs && node scripts/gen-entity-ids.mjs",
+    "prepack": "yarn build",
     "watch": "node watch.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
