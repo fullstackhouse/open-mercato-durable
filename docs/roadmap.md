@@ -108,3 +108,27 @@ harness (which talks to Postgres directly):
    imports core's own sibling, so a run started through `/api/data_sync/run` never reached the
    durable start path. The route is now wrapped — not copied — so the job is created alongside
    the run, with core's queue delivery still the backstop if that fails.
+
+## The soak
+
+`yarn workspace @fullstackhouse/durable-harness soak --replicas 3 --minutes N --transport pgboss|bullmq`
+
+Three real worker processes, one SIGKILLed at random every four seconds, with jobs arriving
+throughout so a kill always lands on work in flight. Two minutes, both transports:
+
+    299 jobs created · 299 completed · 0 failures · 29 kills · ~12,000 fenced writes
+
+Four invariants, each stated as the failure it rules out: every job ends terminal; owners never
+interleave; no batch is ever skipped; no expired lease outlives the reconciler.
+
+The first run of the soak failed — and it was the invariants that were wrong, not the mechanism,
+which is worth recording because both would have looked identical from the outside:
+
+- *"one owner per slice"* is false by design. A re-drive bumps `redrives`, not
+  `continuation_seq`, so a new owner legitimately claims the same seq after a worker dies.
+  Sequential owners are the mechanism working; what must not happen is two owners writing at
+  **overlapping** times, which is what the invariant now checks.
+- *"no batch runs twice"* is false by design too. Delivery is at-least-once: a process killed
+  between a batch's write and its checkpoint commit will redo that batch, which is the
+  documented cost the adapter contract asks adapters to tolerate. Repetition is reported;
+  **loss** is the failure, so the invariant is now that no batch is ever skipped.
