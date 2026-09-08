@@ -53,6 +53,13 @@ yarn verify        # the `packages` CI lane, step for step
 yarn verify:all    # + failure harness + the e2e ephemeral run (needs Docker)
 ```
 
+Two more, neither in `verify` because both are slow and neither belongs on every change:
+
+```bash
+yarn workspace @fullstackhouse/durable-harness soak --replicas 3 --minutes 10 --transport pgboss
+./scripts/install-lane.sh latest        # what npm would actually ship; --full also scaffolds an app
+```
+
 **Run these before pushing, not after.** CI is the backstop. The e2e lane in particular spends
 six minutes booting a real app before it can tell you anything, and reports failures buried in
 progress output — the same failure takes one local run to see.
