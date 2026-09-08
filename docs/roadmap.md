@@ -24,7 +24,7 @@ a `workflows` adopter.
 | 3 | reconciler, worker bind/tick/drain, harness replicas | SIGKILL mid-slice re-driven; cancel-then-kill ends cancelled; poison park; lost hand-back re-driven; two reconcilers partition | done — 83 harness tests, incl. real SIGKILLed child processes |
 | 4 | bullmq adapter | full harness suite on bullmq; SIGTERM drain; tick survives FLUSHALL | done — conformance + tick survives FLUSHALL |
 | 5 | pgboss adapter | full harness suite on pgboss; transactional start rollback leaves nothing | done — conformance + transactional start, mutation-checked |
-| 6 | OM module surface (migration, DI, routes, CLI, events, progress mirror, in-process worker), `TC-DW-00x` | unit matrix; e2e in sandbox | |
+| 6 | OM module surface (entity, migration, DI, operator API, CLI, events, progress mirror) | done — exercised against a booted sandbox; `TC-DW-00x` e2e specs pending |
 | 7 | `data-sync-durable` drop-in (REPLACED set, kind, slice engine, migrations re-export, compat probe), sandbox `example_sync`, `TC-DSD-00x` | harness data-sync suite; e2e in sandbox; compat on `latest` + `develop` | |
 | 8 | soak, install lane, docs, release 0.1.0, repo public | soak invariants; install lane green on both channels | |
 | 9 | groomershop staging → prod; `scheduler-durable` | separate plan | |

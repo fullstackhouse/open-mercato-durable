@@ -2,3 +2,4 @@
 // This package mirrors core's data_sync module file-for-file; see docs/adr/0006-drop-in-data-sync.md.
 export * from '@open-mercato/core/modules/data_sync/workers/sync-export'
 export { default } from '@open-mercato/core/modules/data_sync/workers/sync-export'
+export { metadata } from '@open-mercato/core/modules/data_sync/workers/sync-export'

@@ -65,6 +65,8 @@ export { runSlice } from './core/run-slice'
 export type { RunSliceDeps, RunSliceResult } from './core/run-slice'
 export { DomainMirrorMismatchError, runAfterTransition, runTerminalTransition } from './core/terminal'
 export type { TerminalResult, Transition } from './core/terminal'
+export { DurableWorkService } from './core/service'
+export type { DurableWorkServiceDeps, RedriveRefusal, StartResult } from './core/service'
 export { reconcileOnce } from './core/reconciler'
 export type { ReconcileReport, ReconcilerDeps } from './core/reconciler'
 export { RECONCILE_QUEUE, RECONCILE_TICK_ID, enqueueJob, startWorker } from './core/worker'
@@ -81,6 +83,13 @@ export type {
   TransportAdapter,
   TransportName,
 } from './transport/types'
+export { createTransport, readConfig } from './om/config'
+export type { DurableWorkConfig } from './om/config'
+export { mikroExecutor, mikroTx } from './om/sql-executor-mikro'
+export { createProgressMirror } from './om/progress-mirror'
+export type { ProgressMirror, ProgressServiceLike } from './om/progress-mirror'
+export { DurableWorkJob } from './modules/durable_work/data/entities'
+
 export { MemoryTransport } from './transport/memory'
 export type { MemoryFaults } from './transport/memory'
 export { BullMQTransport } from './transport/bullmq'

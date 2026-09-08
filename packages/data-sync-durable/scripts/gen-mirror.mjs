@@ -140,6 +140,46 @@ function copiedObjectLiteralExport(source, exportName) {
   return null
 }
 
+// Every VALUE a core file exports, named explicitly.
+//
+// `export * from …` is invisible to every static reader in the OM generator, and those readers
+// gate real behaviour: a `di.ts` whose `register` it cannot see is reported as "DI registrations
+// will never run", and a `page.meta.ts` whose `metadata` it cannot see is reported as "renders
+// with NO authorization gate". Both are false — the emitted code reaches them through the
+// namespace at runtime — but a warning that says authorization is missing when it is not will
+// either be ignored, which is bad, or believed, which is worse.
+//
+// Types are left to the star: `export *` re-exports them at the type level, and naming them
+// here would need `export type` to satisfy isolatedModules for no gain.
+function exportedValueNames(source) {
+  const sf = ts.createSourceFile('probe.ts', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const names = new Set()
+  const modifiersOf = (node) => (ts.canHaveModifiers(node) ? (ts.getModifiers(node) ?? []) : [])
+  // `export default function SyncRunDetailPage` exports a DEFAULT, not a name — re-exporting
+  // `SyncRunDetailPage` from it names an export the target module does not have, and the
+  // bundler refuses the whole page.
+  const isExported = (node) =>
+    modifiersOf(node).some((m) => m.kind === ts.SyntaxKind.ExportKeyword) &&
+    !modifiersOf(node).some((m) => m.kind === ts.SyntaxKind.DefaultKeyword)
+
+  for (const statement of sf.statements) {
+    if (ts.isVariableStatement(statement) && isExported(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name)) names.add(declaration.name.text)
+      }
+    } else if ((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) && isExported(statement) && statement.name) {
+      names.add(statement.name.text)
+    } else if (ts.isEnumDeclaration(statement) && isExported(statement)) {
+      names.add(statement.name.text)
+    } else if (ts.isExportDeclaration(statement) && statement.exportClause && ts.isNamedExports(statement.exportClause) && !statement.isTypeOnly) {
+      for (const element of statement.exportClause.elements) {
+        if (!element.isTypeOnly && element.name.text !== 'default') names.add(element.name.text)
+      }
+    }
+  }
+  return [...names].sort()
+}
+
 function stubFor(rel, source) {
   const noExt = rel.replace(/\.(tsx?|mjs|js)$/, '')
   const target = `${CORE_IMPORT_BASE}/${noExt}`
@@ -153,11 +193,15 @@ function stubFor(rel, source) {
   if (isApi && methods.length && !metadata && /export\s+(?:const|let|var)\s+metadata\b/.test(source)) {
     console.warn(`gen-mirror: ${rel} exports a non-literal \`metadata\`; the route will fall back to auth-required defaults`)
   }
+  // Named explicitly, minus anything emitted separately below (a copied metadata literal
+  // would collide with a re-export of the same name).
+  const values = exportedValueNames(source).filter((name) => !methods.includes(name) && !(metadata && name === 'metadata') && !(hasOpenApi && name === 'openApi'))
   return (
     (useClient ? `'use client'\n` : '') +
     HEADER(rel) +
     `export * from '${target}'\n` +
     (hasDefault ? `export { default } from '${target}'\n` : '') +
+    (values.length ? `export { ${values.join(', ')} } from '${target}'\n` : '') +
     (methods.length ? `export { ${methods.join(', ')} } from '${target}'\n` : '') +
     (hasOpenApi ? `import { openApi as coreOpenApi } from '${target}'\nexport const openApi = coreOpenApi\n` : '') +
     (metadata ? `// Copied from core: the generator reads this by AST and cannot follow a re-export.\nexport const metadata = ${metadata}\n` : '')

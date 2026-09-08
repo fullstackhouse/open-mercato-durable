@@ -26,15 +26,17 @@
   "files": [
     "dist",
     "src",
+    "generated",
     "README.md"
   ],
   "scripts": {
-    "build": "node build.mjs",
+    "build": "node build.mjs && node scripts/gen-entity-ids.mjs",
     "watch": "node watch.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "gen:entity-ids": "node scripts/gen-entity-ids.mjs"
   },
   "exports": {
     ".": {
