@@ -54,8 +54,14 @@ specs. `TC-DW-000` (`GET /api/durable_work/jobs` → 200) cannot pass before pha
 when `durable_work` grows routes — the roadmap row above overstated what phase 0 can prove, and
 the operator-API spec moves to phase 6 where it belongs.
 
-**Known sandbox quirks**, neither caused by our packages:
+The ephemeral e2e environment also builds, boots and serves `data_sync` from our package
+(`sync_excel` present in the adapter registry there too), and all seven CI lanes are green.
 
+**Known sandbox quirks**, none caused by our packages:
+
+- The template's `.env.example` ships `JWT_SECRET=change-me-dev-secret`, which core refuses to
+  boot on in production mode — so the ephemeral runner, which builds and starts a production
+  app, cannot use the template as-is. `scripts/sandbox-env.sh` generates the secrets instead.
 - `POST /api/auth/login` accepts form encoding, not JSON; the seeded `secret` password does not
   satisfy the app's own password policy, so `mercato auth set-password` rejects re-setting it.
 - Next must be pinned to exactly the version `apps/sandbox` uses. A split (our packages had
