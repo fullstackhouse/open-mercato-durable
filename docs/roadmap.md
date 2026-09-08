@@ -22,8 +22,8 @@ a `workflows` adopter.
 | 1 | `schema.ts`, `store.ts`, memory transport, harness env | store tests on real PG (epoch refusal, seq/redrives refusal, verdict in-statement, lock-key 409, idempotency) | done — 39 tests, mutation-checked |
 | 2 | registry, `runSlice`, terminal transition, taxonomy | duplicate delivery refused; stale writer fenced; crash between writes resumes; terminal + mirror; 3 yields spend no retry | done — 63 harness tests |
 | 3 | reconciler, worker bind/tick/drain, harness replicas | SIGKILL mid-slice re-driven; cancel-then-kill ends cancelled; poison park; lost hand-back re-driven; two reconcilers partition | done — 83 harness tests, incl. real SIGKILLed child processes |
-| 4 | bullmq adapter | full harness suite on bullmq; SIGTERM drain; tick survives FLUSHALL | conformance green; FLUSHALL case pending |
-| 5 | pgboss adapter | full harness suite on pgboss; transactional start rollback leaves nothing | conformance green; transactional-start case pending |
+| 4 | bullmq adapter | full harness suite on bullmq; SIGTERM drain; tick survives FLUSHALL | done — conformance + tick survives FLUSHALL |
+| 5 | pgboss adapter | full harness suite on pgboss; transactional start rollback leaves nothing | done — conformance + transactional start, mutation-checked |
 | 6 | OM module surface (migration, DI, routes, CLI, events, progress mirror, in-process worker), `TC-DW-00x` | unit matrix; e2e in sandbox | |
 | 7 | `data-sync-durable` drop-in (REPLACED set, kind, slice engine, migrations re-export, compat probe), sandbox `example_sync`, `TC-DSD-00x` | harness data-sync suite; e2e in sandbox; compat on `latest` + `develop` | |
 | 8 | soak, install lane, docs, release 0.1.0, repo public | soak invariants; install lane green on both channels | |
