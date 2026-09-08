@@ -135,12 +135,17 @@ which is worth recording because both would have looked identical from the outsi
 
 ## What is not done
 
-- **The install lane.** `scripts/install-lane.sh` and the nightly CI job that packs both
-  packages with `yarn pack`, installs the tarballs into a fresh `create-mercato-app` and runs
-  the same Playwright specs. Everything today is verified against the workspace link, which
-  proves the code but not the *published shape* — an `exports` map or a `files` list can be
-  wrong in a way no workspace test can see. This is the last gap before a release means
-  anything.
+- ~~The install lane.~~ Done: `scripts/install-lane.sh`, nightly in CI on both channels. It
+  packs both packages exactly as `npm publish` would, checks the tarball members a host loads
+  through, installs them into a throwaway package with an app's peers, and resolves and imports
+  every specifier the OM CLI generates. Verified to fail when it should: dropping `generated`
+  from `files` — a mistake that installs cleanly and then contributes no entity ids — is caught.
+  `--full` additionally scaffolds a real app with `create-mercato-app` and generates against the
+  published packages.
+
+  It also surfaced a real publishing constraint: `yarn pack` rewrites `workspace:^` into a
+  version range, so `data-sync-durable` ships depending on `durable-work@^0.0.1`. **`durable-work`
+  must be published first**, and its version must be one that exists on npm.
 - **The release itself** (`durable-work@0.1.0`, `data-sync-durable@0.1.0`) and flipping the
   repo public. Both are outward-facing and irreversible, so they are Jacek's call rather than
   something to do unasked.

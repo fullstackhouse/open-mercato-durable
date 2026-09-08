@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Nightly, for the install lane — the one check that needs the packages packed and
+    # reinstalled rather than linked.
+    - cron: '0 3 * * *'
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -148,3 +152,25 @@ jobs:
       - run: yarn workspace sandbox generate
       - run: yarn typecheck
       - run: yarn test
+
+  install:
+    name: install lane (${{ matrix.channel }})
+    # Nightly and before a release. Everything else tests the workspace link; this is the only
+    # lane that tests what npm would actually ship, and it is slow enough not to belong on
+    # every push.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [latest, develop]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable
+      - run: yarn install
+      - run: yarn platform:sync --channel ${{ matrix.channel }}
+      - run: yarn install --no-immutable
+      - run: ./scripts/install-lane.sh ${{ matrix.channel }}
