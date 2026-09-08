@@ -61,6 +61,10 @@ export {
 } from './core/schema'
 
 export * as store from './core/store'
+export { runSlice } from './core/run-slice'
+export type { RunSliceDeps, RunSliceResult } from './core/run-slice'
+export { DomainMirrorMismatchError, runAfterTransition, runTerminalTransition } from './core/terminal'
+export type { TerminalResult, Transition } from './core/terminal'
 export { deliveryId, makeOwnerId, parseDeliveryId, queueNameFor, sliceIdempotencyKey } from './core/ids'
 
 export type {

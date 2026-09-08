@@ -20,7 +20,7 @@ a `workflows` adopter.
 |---|---|---|---|
 | 0 | Repo scaffold (official-modules shape), sandbox app with `data_sync` swapped to our package, harness skeleton, QA discovery, platform-sync, Verdaccio, changesets, vendored specs, ADRs, CI lanes; **spike**: `gen-mirror` v0 with pure re-export stubs, verified through `yarn generate` | packages lane green; sandbox boots with core-equivalent `data_sync` served from our package; `TC-DW-000` + `TC-DSD-000` pass; harness runs one test per transport | scaffold + spike done; e2e specs pending |
 | 1 | `schema.ts`, `store.ts`, memory transport, harness env | store tests on real PG (epoch refusal, seq/redrives refusal, verdict in-statement, lock-key 409, idempotency) | done — 39 tests, mutation-checked |
-| 2 | registry, `runSlice`, terminal transition, taxonomy, conformance on memory | duplicate delivery refused; stale writer fenced; crash between writes resumes; terminal + mirror; 3 yields spend no retry | |
+| 2 | registry, `runSlice`, terminal transition, taxonomy | duplicate delivery refused; stale writer fenced; crash between writes resumes; terminal + mirror; 3 yields spend no retry | done — 63 harness tests |
 | 3 | reconciler, worker bind/tick/drain, harness replicas | SIGKILL mid-slice re-driven; cancel-then-kill ends cancelled; poison park; lost hand-back re-driven; two reconcilers partition | |
 | 4 | bullmq adapter | full harness suite on bullmq; SIGTERM drain; tick survives FLUSHALL | |
 | 5 | pgboss adapter | full harness suite on pgboss; transactional start rollback leaves nothing | |
