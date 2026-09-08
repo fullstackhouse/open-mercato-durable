@@ -140,6 +140,10 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'customer_accounts', from: '@open-mercato/core' },
   { id: 'portal', from: '@open-mercato/core' },
   { id: 'ratelimit_probe', from: '@app' },
+  // A scripted data_sync integration, so the durable adopter can be exercised end to end
+  // without an external system — and so failures a real adapter only produces by accident can
+  // be produced on purpose.
+  { id: 'example_sync', from: '@app' },
 ]
 
 // Official modules activated via official-modules.json / official-modules.local.json

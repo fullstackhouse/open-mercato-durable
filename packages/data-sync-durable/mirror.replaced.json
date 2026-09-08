@@ -1,4 +1,9 @@
 {
-  "$comment": "Files under src/modules/data_sync that are OURS (not generated stubs). gen-mirror never overwrites them and --check flags when the core file they shadow changes. Phase 0 spike: empty — every file is a pure re-export stub.",
-  "files": []
+  "$comment": "Files under src/modules/data_sync that are OURS, not generated stubs. gen-mirror never overwrites them, and --check flags when the core file each one shadows changes upstream \u2014 so a core change to a file we replaced is reviewed rather than silently diverged from. lib/adopt-on-delivery.ts has no core counterpart and is therefore not listed.",
+  "files": [
+    "di.ts",
+    "lib/start-run.ts",
+    "workers/sync-export.ts",
+    "workers/sync-import.ts"
+  ]
 }

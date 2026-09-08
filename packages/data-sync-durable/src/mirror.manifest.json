@@ -23,7 +23,6 @@
     "components/RunParameterFields.tsx": "3f49886ef0a55193",
     "data/entities.ts": "16476c912a6c7d40",
     "data/validators.ts": "6c238076541373b0",
-    "di.ts": "d351534bd20b2b29",
     "events.ts": "8eea801045ff9789",
     "extension-points.ts": "903cae9d931e0fb3",
     "i18n/de.json": "943e5875db1ab98b",
@@ -40,7 +39,6 @@
     "lib/queue.ts": "0fb590d7695c3837",
     "lib/run-parameters.ts": "145b0a8697d34c82",
     "lib/start-cursor.ts": "2620c39153035fb5",
-    "lib/start-run.ts": "74081590458b202b",
     "lib/sync-engine.ts": "bf3dbfdb1676190c",
     "lib/sync-run-service.ts": "f55c4ec8c547cbd9",
     "lib/sync-schedule-service.ts": "fe2e6bafc37ed319",
@@ -49,11 +47,14 @@
     "migrations/Migration20260304113737.ts": "e3f0edec96d4a4d8",
     "migrations/Migration20260810120000.ts": "29a2154fcf03c5ce",
     "setup.ts": "f33921e5cb6aafa3",
-    "workers/sync-export.ts": "a23cad4d03dd42da",
-    "workers/sync-import.ts": "21e5356d2d394b6d",
     "workers/sync-scheduled.ts": "bd1c585595bc7148"
   },
-  "replaced": {},
+  "replaced": {
+    "di.ts": "d351534bd20b2b29",
+    "lib/start-run.ts": "74081590458b202b",
+    "workers/sync-export.ts": "a23cad4d03dd42da",
+    "workers/sync-import.ts": "21e5356d2d394b6d"
+  },
   "entityDescriptor": [
     "entities.ids.generated.ts",
     "entities/sync_run/index.ts",

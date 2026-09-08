@@ -10,8 +10,15 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { SqlExecutor, SqlTransactor } from '../core/types'
 
 type Connection = {
-  execute(sql: string, params?: unknown[], method?: 'all' | 'get' | 'run'): Promise<unknown>
+  execute(sql: string, params?: unknown[], method?: 'all' | 'get' | 'run', ctx?: unknown): Promise<unknown>
 }
+
+type EntityManagerLike = EntityManager & { getTransactionContext?(): unknown }
+
+/** True when the statement returns rows the caller will read. */
+const RETURNS_ROWS = /\breturning\b|^\s*(select|with)\b/i
+
+type RunResult = { affectedRows?: number; rowCount?: number }
 
 /**
  * Rewrites Postgres's numbered placeholders into the positional ones MikroORM binds with.
@@ -41,12 +48,30 @@ export function toPositional(text: string, params: readonly unknown[]): { text: 
 function executorFor(em: EntityManager): SqlExecutor {
   return {
     async query<R = Record<string, unknown>>(text: string, params: readonly unknown[] = []) {
-      const connection = em.getConnection() as unknown as Connection
+      const manager = em as EntityManagerLike
+      const connection = manager.getConnection() as unknown as Connection
       const bound = toPositional(text, params)
-      // `all` for every statement: our writes use RETURNING, and MikroORM's `run` discards
-      // rows. A CAS whose returned row is thrown away cannot tell "matched" from "refused".
-      const rows = (await connection.execute(bound.text, bound.params, 'all')) as R[]
-      return { rows, rowCount: rows.length }
+
+      // The transaction this EntityManager is inside, if any.
+      //
+      // Without it every statement runs on a pooled connection *outside* the transaction, and
+      // the guarantees built on top quietly stop holding: `fencedWrite` no longer rolls back a
+      // stale worker's writes, and a terminal transition no longer moves the job row and the
+      // domain row together. Nothing fails — it just is not atomic any more, which is the
+      // worst possible way for this to be wrong.
+      const ctx = manager.getTransactionContext?.()
+
+      if (RETURNS_ROWS.test(bound.text)) {
+        const rows = (await connection.execute(bound.text, bound.params, 'all', ctx)) as R[]
+        return { rows, rowCount: rows.length }
+      }
+
+      // A statement with no RETURNING has no rows to count, and counting them anyway reports
+      // zero for an UPDATE that matched. That number is not cosmetic: a domain mirror returns
+      // it as `matched`, and `matched: 0` is treated exactly like a throw — so every mirror
+      // would look like it had failed while the write it made had already landed.
+      const result = (await connection.execute(bound.text, bound.params, 'run', ctx)) as RunResult
+      return { rows: [] as R[], rowCount: result?.affectedRows ?? result?.rowCount ?? 0 }
     },
   }
 }
@@ -64,6 +89,9 @@ export function mikroExecutor(em: EntityManager): SqlTransactor {
     query: base.query,
     async transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
       const forked = em.fork()
+      // `transactional` gives the callback an EntityManager carrying the transaction context,
+      // which `executorFor` then passes to every statement. Using the outer `em` here instead
+      // would silently run them outside the transaction.
       return forked.transactional(async (trx) => fn(executorFor(trx as EntityManager)))
     },
   }

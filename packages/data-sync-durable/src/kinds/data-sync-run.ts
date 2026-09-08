@@ -54,7 +54,8 @@ async function runSlice(ctx: SliceContext<SyncRunInput>, deps: DataSyncKindDeps)
   if (input.direction === 'export') await decorated.runExport(input.runId, input.batchSize, scope)
   else await decorated.runImport(input.runId, input.batchSize, scope)
 
-  return outcomeOf(recorder, input.runId)
+  const after = await runService.getRun(input.runId, scope)
+  return outcomeOf(recorder, input.runId, after?.status)
 }
 
 /**

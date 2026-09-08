@@ -25,7 +25,7 @@ a `workflows` adopter.
 | 4 | bullmq adapter | full harness suite on bullmq; SIGTERM drain; tick survives FLUSHALL | done — conformance + tick survives FLUSHALL |
 | 5 | pgboss adapter | full harness suite on pgboss; transactional start rollback leaves nothing | done — conformance + transactional start, mutation-checked |
 | 6 | OM module surface (entity, migration, DI, operator API, CLI, events, progress mirror) | done — exercised against a booted sandbox; `TC-DW-00x` e2e specs pending |
-| 7 | `data-sync-durable` drop-in (REPLACED set, kind, slice engine, migrations re-export, compat probe), sandbox `example_sync`, `TC-DSD-00x` | harness data-sync suite; e2e in sandbox; compat on `latest` + `develop` | |
+| 7 | `data-sync-durable` drop-in: decorated run service, kinds, REPLACED set (di, start-run, workers), adopt-on-delivery, compat probe, sandbox `example_sync` | demonstrated against a booted sandbox — see below; `TC-DSD-00x` Playwright specs remain | mostly done |
 | 8 | soak, install lane, docs, release 0.1.0, repo public | soak invariants; install lane green on both channels | |
 | 9 | groomershop staging → prod; `scheduler-durable` | separate plan | |
 
@@ -67,3 +67,35 @@ The ephemeral e2e environment also builds, boots and serves `data_sync` from our
 - Next must be pinned to exactly the version `apps/sandbox` uses. A split (our packages had
   16.1.7 while the sandbox had 16.3.0) makes yarn install two copies and Turbopack panics during
   middleware compilation with no hint at the cause. `yarn check:dep-versions` now fails on it.
+
+## Phase 7 — what has been demonstrated
+
+Against a booted sandbox with `data_sync` served from this package and a real
+`mercato durable_work worker` process:
+
+- `POST /api/data_sync/run` creates a `sync_runs` row **and** a durable job carrying the
+  single-runner lock key, the run's idempotency key and its subject.
+- The worker runs the run through **core's own engine**, and it completes: `sync_runs` is
+  `completed` with its batches and record counts, the durable job is `completed`, and
+  `domain_mirrored_at` is set — the two rows moved together.
+- **A transient failure no longer throws the run away.** With a failure injected at batch 2:
+  `slice_failed … "Scripted failure at batch 2"` followed by `job_completed` for the same job.
+  The run resumed from its committed cursor, finished the remaining batches, and ended with
+  `consecutive_failures` back at 0. That is fsh#101.
+- A second start for the same integration, entity and direction is refused with 409.
+- The operator API shows live counts (`6 of 6`) for the job.
+
+Four bugs this found, all in the Open Mercato adapter layer and none reachable from the
+harness (which talks to Postgres directly):
+
+1. **`mikroExecutor.transaction` was not transactional.** MikroORM's `connection.execute` takes
+   the transaction context as its fourth argument; without it every statement ran on a pooled
+   connection outside the transaction. Nothing failed — it simply was not atomic, so
+   `fencedWrite` no longer rolled back a stale worker's writes and a terminal transition no
+   longer moved both rows together.
+2. **`rowCount` counted returned rows.** An `UPDATE` without `RETURNING` returns none, so every
+   domain mirror reported `matched: 0` — which is treated exactly like a throw, over a write
+   that had already landed.
+3. **The decorated services carried only the overridden methods**, so core's engine failed at
+   its first undecorated call (`progressService.startJob is not a function`).
+4. **The module CLI used the wrong shape**, so `mercato durable_work worker` did not exist.

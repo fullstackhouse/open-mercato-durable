@@ -10,12 +10,15 @@
 
 import type { SliceContext, SliceOutcome, SqlExecutor } from '@fullstackhouse/open-mercato-durable-work'
 
+import { SeamBrokenError } from '../modules/data_sync/lib/version-guard'
+
 export type SyncScope = { tenantId: string; organizationId: string | null; userId?: string | null }
 export type SyncTerminalStatus = 'completed' | 'failed' | 'cancelled'
 
-/** The subset of core's run service this decorator wraps. Structural, so the package does not
- *  bind to a concrete class it only needs three methods of. */
+/** The methods this decorator *wraps*, not the whole service: core's engine calls plenty more,
+ *  and they are passed through untouched. Anything not listed here is delegated. */
 export type SyncRunServiceLike = {
+  [method: string]: unknown
   getRun(runId: string, scope: SyncScope): Promise<{ status: string; progressJobId?: string | null } | null>
   markStatus(runId: string, status: string, scope: SyncScope, error?: string): Promise<unknown>
   commitBatchProgress(
@@ -28,6 +31,7 @@ export type SyncRunServiceLike = {
 }
 
 export type ProgressServiceLike = {
+  [method: string]: unknown
   isCancellationRequested(progressJobId: string, tenantId: string, organizationId: string | null): Promise<boolean>
 }
 
@@ -64,8 +68,15 @@ export function recordSlice(
     stopReason: () => stopReason,
     committedBatches: () => committed,
 
+    // Spread, not rebuilt.
+    //
+    // Core's engine calls far more than the three methods decorated here — `startJob`,
+    // `updateProgress`, `touchJobHeartbeat`, `markCancelled` and others on the progress
+    // service, and more of the run service besides. An object carrying only the overrides
+    // looks fine to TypeScript through a structural type and then fails at the first
+    // undecorated call, mid-run.
     runService: {
-      getRun: (runId, scope) => runService.getRun(runId, scope),
+      ...runService,
 
       /**
        * Records a terminal transition instead of performing it, and answers with the run
@@ -104,6 +115,25 @@ export function recordSlice(
     },
 
     progressService: {
+      ...progressService,
+
+      /**
+       * Mirrors the run's counters onto the durable job as they move.
+       *
+       * Core reports progress here after every committed batch. Without this the operator API
+       * shows a job that is plainly running with `0 of null` processed, and the one place
+       * somebody looks to see whether a multi-day backfill is advancing tells them nothing.
+       */
+      async updateProgress(progressJobId: string, patch: { processedCount?: number; totalCount?: number | null }, scope: unknown) {
+        await ctx
+          .heartbeat({ processedCount: patch?.processedCount, totalCount: patch?.totalCount ?? null })
+          .catch(() => undefined)
+        const inner = progressService.updateProgress as
+          | ((id: string, patch: unknown, scope: unknown) => Promise<unknown>)
+          | undefined
+        return inner?.call(progressService, progressJobId, patch, scope)
+      },
+
       /**
        * Core asks this once per batch and stops the stream cleanly when it is true. That makes
        * it the slice's hand-back point as well as its cancellation point — the two need the
@@ -137,16 +167,32 @@ export class SyncRunFailedError extends Error {
   }
 }
 
-/** Turns what the recorder saw into the outcome the mechanism understands. */
-export function outcomeOf(recorder: SliceRecorder, runId: string): SliceOutcome {
+/**
+ * Turns what the recorder saw into the outcome the mechanism understands.
+ *
+ * @param runStatus the run's status after the slice, used only to tell "already finished" from
+ *                  "core finalized this itself" — see the seam check below
+ */
+export function outcomeOf(recorder: SliceRecorder, runId: string, runStatus?: string): SliceOutcome {
   const captured = recorder.captured()
 
   if (recorder.stopReason() === 'budget') return 'budget'
   if (recorder.stopReason() === 'cancelled') return 'cancelled'
 
   if (!captured) {
-    // The engine returned without finalizing: the run was already terminal, or missing. Either
-    // way there is nothing left for this slice to do.
+    // Nothing was recorded. Two very different situations look the same from here, and telling
+    // them apart is the whole point:
+    //
+    //   - the run was already terminal, or gone, before this slice started — nothing to do
+    //   - core finalized the run itself, without going through the decorated `markStatus`
+    //
+    // The second means the seam this package rests on has moved (ADR 0004), and reporting it
+    // as success would leave a job that says `completed` beside a run that says `failed`.
+    // Committed batches are what distinguishes them: a slice that did real work and then found
+    // the run terminal without recording anything did not simply arrive late.
+    if (recorder.committedBatches() > 0 && runStatus && runStatus !== 'running' && runStatus !== 'pending') {
+      throw new SeamBrokenError(runId, `the run reached "${runStatus}" without the adopter recording it`)
+    }
     return 'drained'
   }
   if (captured.status === 'failed') throw new SyncRunFailedError(runId, captured.error ?? 'Sync run failed')
