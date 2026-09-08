@@ -1,6 +1,6 @@
 {
   "name": "@fullstackhouse/open-mercato-data-sync-durable",
-  "version": "0.7.0-alpha.0",
+  "version": "0.1.0",
   "description": "Drop-in replacement for Open Mercato's core data_sync module that runs sync runs as durable at-least-once work (via @fullstackhouse/open-mercato-durable-work): survives deploys and worker kills, resumes from the committed cursor, retries transient errors at the batch, never leaves a run 'running' forever. Same tables, API, adapter contract, events and UI as core; swap one line in modules.ts.",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,7 +19,8 @@
     "background-jobs"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "files": [
     "dist",
@@ -93,7 +94,7 @@
     }
   },
   "peerDependencies": {
-    "@fullstackhouse/open-mercato-durable-work": "*",
+    "@fullstackhouse/open-mercato-durable-work": "^0.1.0",
     "@mikro-orm/core": ">=7.0.0",
     "@mikro-orm/migrations": ">=7.0.0",
     "@mikro-orm/postgresql": ">=7.0.0",
@@ -108,7 +109,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
-    "@fullstackhouse/open-mercato-durable-work": "workspace:^",
+    "@fullstackhouse/open-mercato-durable-work": "^0.1.0",
     "@mikro-orm/core": "^7.1.8",
     "@mikro-orm/migrations": "^7.1.8",
     "@mikro-orm/postgresql": "^7.1.8",

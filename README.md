@@ -74,6 +74,19 @@ yarn dev:worker                           # the durable worker, in a second term
 
 Layout: `packages/*` publishable packages · `apps/sandbox` example app · `harness/` failure suite (not published; deliberately outside `apps/` — the OM CLI treats every `apps/*` directory as a candidate app) · `docs/` specs, ADRs, roadmap · `.ai/qa` e2e discovery and Playwright config.
 
+## Releasing
+
+Automatic. Every merge to `main` that changes something a user can see publishes both packages
+at one version, computed from the conventional commits since the last tag, over npm trusted
+publishing — no token is stored anywhere, and the artifacts carry provenance. `yarn
+release:dry-run` reports what a merge would release without publishing.
+
+The two packages release in lockstep at one version on purpose: the mirror is generated against
+a pinned core, the compat probe asserts the seams the adopter decorates, and the harness
+exercises both, so a change to either is only ever validated against the other. See
+[`.releaserc.md`](.releaserc.md), which also covers the one-time bootstrap each package needs
+before automation can take over.
+
 ## License
 
 MIT

@@ -49,17 +49,21 @@
     "version-packages": "changeset version",
     "release": "yarn build:packages && changeset publish",
     "verify": "yarn install --immutable && yarn build:packages && yarn gen:mirror:check && yarn workspace sandbox generate && yarn build:packages && yarn typecheck && yarn lint && yarn test && yarn check:dep-versions && yarn platform:sync:check",
-    "verify:all": "yarn verify && yarn test:harness && yarn test:integration:ephemeral"
+    "verify:all": "yarn verify && yarn test:harness && yarn test:integration:ephemeral",
+    "release:dry-run": "semantic-release --dry-run --no-ci"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
     "@open-mercato/scheduler": "0.7.0",
     "@open-mercato/search": "0.7.0",
     "@playwright/test": "^1.58.2",
+    "@semantic-release/exec": "^7.0.0",
+    "@semantic-release/git": "^10.0.1",
     "@types/node": "^24.10.1",
     "esbuild": "^0.25.0",
     "glob": "^13.0.6",
     "globals": "^16.0.0",
+    "semantic-release": "^24.2.0",
     "tsx": "^4.21.0",
     "turbo": "^2.3.3",
     "typescript": "^5.9.3"
