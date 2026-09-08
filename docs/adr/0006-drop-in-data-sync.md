@@ -39,8 +39,7 @@ scope.
 
 ## Consequences
 
-- The whole host change is one line, and reverting is the same line. Adapters (`subiekt_sync`,
-  `sync_excel`, `sync_akeneo`) are untouched: they import core's deep paths, which our stubs
+- The whole host change is one line, and reverting is the same line. Existing adapters (`sync_excel`, `sync_akeneo` and any in-house ones) are untouched: they import core's deep paths, which our stubs
   re-export, so there is still one process-wide adapter registry and one entity class.
 - We own the appearance of core's entire `data_sync` surface — 52 files — even though we only
   wrote ten of them. `gen:mirror --check` and the manifest hashes are what keep that from

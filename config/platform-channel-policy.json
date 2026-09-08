@@ -1,5 +1,5 @@
 {
-  "$comment": "Read by scripts/platform-sync.mjs. `yarn platform:sync --channel latest|develop` repins every @open-mercato dependency below to the exact version behind that npm dist-tag, across the sandbox and every workspace package. `--check` fails when the repo has drifted. The `compat` CI lane runs both channels so the build groomershop tracks (develop) is exercised alongside the released one.",
+  "$comment": "Read by scripts/platform-sync.mjs. `yarn platform:sync --channel latest|develop` repins every @open-mercato dependency below to the exact version behind that npm dist-tag, across the sandbox and every workspace package. `--check` fails when the repo has drifted. The `compat` CI lane runs both channels so the pre-release build our pilot consumer tracks (develop) is exercised alongside the released one.",
   "sandboxManifest": "apps/sandbox/package.json",
   "workspaceGlob": "packages/*/package.json",
   "channels": {

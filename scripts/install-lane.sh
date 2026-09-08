@@ -160,7 +160,14 @@ node --input-type=module -e "
   if (typeof di.register !== 'function') throw new Error('di.register missing — the host would silently register nothing');
   const cli = (await import('@fullstackhouse/open-mercato-durable-work/modules/durable_work/cli')).default;
   if (!cli?.some((command) => command.command === 'worker')) throw new Error('the worker command is missing');
-  console.log('  ✓ module surface imports and exposes worker, di.register and the schema');
+
+  // The drop-in has to answer as core's module, or the host registers a module with no identity.
+  const adopter = await import('@fullstackhouse/open-mercato-data-sync-durable/modules/data_sync/index');
+  if (adopter.metadata?.id !== 'data_sync') throw new Error('the data_sync drop-in does not carry core\'s module metadata');
+  const adopterDi = await import('@fullstackhouse/open-mercato-data-sync-durable/modules/data_sync/di');
+  if (typeof adopterDi.register !== 'function') throw new Error('the data_sync drop-in exposes no di.register');
+
+  console.log('  ✓ module surface imports; worker, di.register, schema and the data_sync identity all intact');
 " || fail "the published package does not import cleanly"
 pass "module surface intact"
 

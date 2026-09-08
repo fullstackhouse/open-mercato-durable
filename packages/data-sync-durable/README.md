@@ -18,6 +18,32 @@ yarn mercato module add @fullstackhouse/open-mercato-durable-work
 yarn mercato module add @fullstackhouse/open-mercato-data-sync-durable
 ```
 
+<details>
+<summary>Installing straight from the repository, without a registry</summary>
+
+Both packages build on pack, so a git dependency delivers a built package:
+
+```yaml
+# .yarnrc.yml
+approvedGitRepositories:
+  - "ssh://git@github.com/fullstackhouse/*"
+```
+
+```bash
+REPO="git+ssh://git@github.com/fullstackhouse/open-mercato-durable.git"
+yarn add \
+  "@fullstackhouse/open-mercato-durable-work@$REPO#workspace=@fullstackhouse/open-mercato-durable-work" \
+  "@fullstackhouse/open-mercato-data-sync-durable@$REPO#workspace=@fullstackhouse/open-mercato-data-sync-durable"
+```
+
+Add both, always. `durable-work` is a **peer** of this package, and installing exactly one copy
+of it is not a tidiness preference: it exports a process-wide registry, and a second copy would
+mean kinds register into one and the worker reads the other — silently.
+
+Pin a commit with `&commit=<sha>` if you want a git dependency to be reproducible; a bare
+branch reference re-resolves.
+</details>
+
 `src/modules.ts` — the whole change is one `from`:
 
 ```ts

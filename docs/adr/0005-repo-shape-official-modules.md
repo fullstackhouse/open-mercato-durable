@@ -23,7 +23,7 @@ Adopt that shape. Concretely: yarn 4 + turbo (pnpm is dropped for this repo — 
 the sandbox assume yarn), the official `build.mjs` and export-map package template so our
 packages are `module add`-able and ejectable exactly like official ones, `apps/sandbox`,
 `__integration__` specs run by the OM ephemeral runner, the Verdaccio compose service, and
-`platform:sync` with two channels (`latest`, and `develop` — what groomershop runs).
+`platform:sync` with two channels (`latest`, and `develop` — what the first production adopter runs).
 
 Not adopted: publishing npm canaries from CI, because the repo is private until `0.1.0`. In its
 place, `scripts/install-lane.sh` packs both packages with `yarn pack` and installs the tarballs

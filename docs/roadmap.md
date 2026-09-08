@@ -27,7 +27,7 @@ a `workflows` adopter.
 | 6 | OM module surface (entity, migration, DI, operator API, CLI, events, progress mirror) | done — exercised against a booted sandbox; `TC-DW-00x` e2e specs pending |
 | 7 | `data-sync-durable` drop-in: decorated run service, kinds, REPLACED set (di, start-run, workers), adopt-on-delivery, compat probe, sandbox `example_sync` | demonstrated against a booted sandbox — see below; 9 e2e specs green in the ephemeral runner | done |
 | 8 | soak, install lane, docs, release 0.1.0, repo public | soak invariants; install lane green on both channels | |
-| 9 | groomershop staging → prod; `scheduler-durable` | separate plan | |
+| 9 | first production adopter: staging → prod; then `scheduler-durable` | separate plan | |
 
 ## Phase 0 — where it stands
 
@@ -149,5 +149,5 @@ which is worth recording because both would have looked identical from the outsi
 - **The release itself** (`durable-work@0.1.0`, `data-sync-durable@0.1.0`) and flipping the
   repo public. Both are outward-facing and irreversible, so they are Jacek's call rather than
   something to do unasked.
-- **Phase 9, groomershop.** On hold by decision D7 until the adopter is ready; it is a separate
-  plan.
+- **Phase 9, the first production rollout.** On hold until the adopter is ready; it is a
+  separate plan.
