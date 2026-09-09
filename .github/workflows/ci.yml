@@ -196,6 +196,10 @@ jobs:
       issues: write # release comments
       pull-requests: write # release comments
       id-token: write # npm trusted publishing, and provenance on the artifact
+      # The permission alone is not enough: only @semantic-release/npm v13+ knows to mint a
+      # token from it. Older majors go straight to `npm whoami`, which needs a token that does
+      # not exist here, and fail in verifyConditions before reading a single commit. That is why
+      # the semantic-release pin is a major range, not a caret over whatever installs.
     steps:
       - uses: actions/checkout@v4
         with:
