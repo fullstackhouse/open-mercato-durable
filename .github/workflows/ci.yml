@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      publish_probe:
+        description: 'Publish a throwaway prerelease over OIDC, to isolate npm from semantic-release'
+        type: boolean
+        default: false
   schedule:
     # Nightly, for the install lane — the one check that needs the packages packed and
     # reinstalled rather than linked.
@@ -284,3 +289,24 @@ jobs:
               }
             })().catch((e) => { console.error(e); process.exit(1); });
           '
+      # Does *npm* accept an OIDC publish for this package, with semantic-release out of the
+      # picture entirely? A throwaway prerelease under its own dist-tag, so `latest` never moves.
+      - uses: actions/checkout@v4
+        if: inputs.publish_probe
+      - uses: actions/setup-node@v4
+        if: inputs.publish_probe
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - run: corepack enable
+        if: inputs.publish_probe
+      - run: npm install -g npm@latest
+        if: inputs.publish_probe
+      - run: yarn install --immutable
+        if: inputs.publish_probe
+      - name: Publish probe
+        if: inputs.publish_probe
+        working-directory: packages/durable-work
+        run: |
+          npm version 0.1.1-oidcprobe.${{ github.run_number }} --no-git-tag-version --allow-same-version
+          npm publish --tag oidc-probe
