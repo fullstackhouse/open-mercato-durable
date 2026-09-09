@@ -324,10 +324,16 @@ export async function replayFinalize(
   }
 
   if (enabled) {
+    // `code` is core's own field on an integration log row, and core's `finalizeRun` leaves it
+    // unset. It is set here because a host that reports error rows outward — reading `code` as
+    // the fingerprint, which the integration log service does — would otherwise group every
+    // durable terminal failure under a generic fallback, losing the one attribute separating a
+    // dead sync run from any other integration error.
     const log =
       status === 'completed'
         ? {
             level: 'info',
+            code: 'data_sync.run_completed',
             message: 'Sync run completed',
             payload: {
               operationalStatus: 'completed',
@@ -342,11 +348,13 @@ export async function replayFinalize(
         : status === 'cancelled'
           ? {
               level: 'warn',
+              code: 'data_sync.run_cancelled',
               message: 'Sync run cancelled',
               payload: { operationalStatus: 'cancelled', summary: 'The sync run was cancelled before completion.' },
             }
           : {
               level: 'error',
+              code: 'data_sync.run_failed',
               message: errorMessage ?? 'Sync run failed',
               payload: { operationalStatus: 'failed', summary: errorMessage ?? 'The sync run failed.' },
             }

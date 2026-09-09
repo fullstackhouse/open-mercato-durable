@@ -65,6 +65,10 @@ describe('replayFinalize', () => {
     )
     // Dispatched to tenant webhooks, so its absence is visible outside the app entirely.
     expect(d.emitEvent).toHaveBeenCalledWith('data_sync.run.completed', expect.objectContaining({ runId: 'run-1' }))
+    expect(d.integrationLogService.write).toHaveBeenCalledWith(
+      expect.objectContaining({ level: 'info', code: 'data_sync.run_completed' }),
+      scope,
+    )
   })
 
   it('fails the progress job and reports the error on failure', async () => {
@@ -81,8 +85,16 @@ describe('replayFinalize', () => {
       expect.objectContaining({ lastHealthStatus: 'unhealthy' }),
       scope,
     )
+    // `code` is the fingerprint a host groups error rows by — the integration log service
+    // reports every error row outward using it. Without it, a dead sync run is indistinguishable
+    // from any other integration error.
     expect(d.integrationLogService.write).toHaveBeenCalledWith(
-      expect.objectContaining({ level: 'error', message: 'batch 39: timeout', runId: 'run-1' }),
+      expect.objectContaining({
+        level: 'error',
+        code: 'data_sync.run_failed',
+        message: 'batch 39: timeout',
+        runId: 'run-1',
+      }),
       scope,
     )
     // Only the failure event carries `error`; a subscriber switching on it would otherwise see
