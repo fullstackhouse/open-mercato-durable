@@ -1,0 +1,56 @@
+# Throwaway diagnostic for the trusted-publishing 403. Manual only; publishes nothing.
+#
+# The question it answers: the OIDC token exchange succeeds for both packages, and the publish
+# is then refused with "OIDC permission denied for this action". Either the stored trust config
+# does not match the claims this workflow actually presents, or it is not what we think it is.
+# `npm trust list` would say, but it needs a one-time password and npm masks the approval URL
+# when it cannot see a TTY — so ask the registry from inside CI instead, with the exchanged
+# token, which is the one credential that is available here.
+name: oidc-debug
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Probe
+        run: |
+          node -e '
+            const PKGS = [
+              "@fullstackhouse/open-mercato-durable-work",
+              "@fullstackhouse/open-mercato-data-sync-durable",
+              "@fullstackhouse/cerber",
+            ];
+            const REG = "https://registry.npmjs.org";
+            (async () => {
+              const url = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
+              url.searchParams.append("audience", "npm:registry.npmjs.org");
+              const r = await fetch(url, { headers: { Authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` } });
+              const { value } = await r.json();
+              const claims = JSON.parse(Buffer.from(value.split(".")[1], "base64").toString());
+              // Claims only. The token itself is never printed.
+              console.log("=== what this workflow presents ===");
+              for (const k of ["iss", "aud", "repository", "repository_owner", "repository_visibility", "workflow_ref", "job_workflow_ref", "ref", "environment"]) {
+                console.log(`  ${k}:`, claims[k] ?? "(absent)");
+              }
+              for (const pkg of PKGS) {
+                console.log(`\n=== ${pkg} ===`);
+                const esc = pkg.replace("/", "%2f");
+                const ex = await fetch(`${REG}/-/npm/v1/oidc/token/exchange/package/${esc}`, {
+                  method: "POST", headers: { Authorization: `Bearer ${value}` },
+                });
+                const body = await ex.json();
+                console.log("  exchange:", ex.status, body.token ? "(token issued)" : JSON.stringify(body));
+                if (!body.token) continue;
+                const t = await fetch(`${REG}/-/package/${esc}/trust`, { headers: { Authorization: `Bearer ${body.token}` } });
+                console.log("  stored trust config:", t.status, JSON.stringify(await t.json()));
+              }
+            })().catch((e) => { console.error(e); process.exit(1); });
+          '
