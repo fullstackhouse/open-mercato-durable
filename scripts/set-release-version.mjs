@@ -12,6 +12,11 @@
 // It also rewrites the adopter's dependency on the mechanism to `^<version>`, which is what
 // keeps that range honest without anyone remembering to. Yarn still links the workspace
 // locally, because the workspace's version satisfies the range.
+//
+// That rewrite lands in `yarn.lock` as a descriptor, so the lockfile is stale the moment this
+// runs. The release refreshes it (`yarn install --mode update-lockfile`) and commits it
+// alongside the manifests — without that, the release itself is fine and the *next* CI run
+// fails on `yarn install --immutable`, a failure that points at the commit after the guilty one.
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
