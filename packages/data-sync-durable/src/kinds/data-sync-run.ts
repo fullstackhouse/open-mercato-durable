@@ -13,6 +13,8 @@ import {
   outcomeOf,
   recordSlice,
   reopenRun,
+  replayFinalize,
+  type FinalizeDeps,
   type ProgressServiceLike,
   type SyncRunServiceLike,
   type SyncScope,
@@ -40,6 +42,8 @@ export type DataSyncKindDeps = {
     engine: (services: { runService: SyncRunServiceLike; progressService: ProgressServiceLike }) => SyncEngineLike
     runService: SyncRunServiceLike
     progressService: ProgressServiceLike
+    /** What core's `finalizeRun` would have done after the status write. */
+    finalize: FinalizeDeps
   }>
 }
 
@@ -83,6 +87,33 @@ export function dataSyncKinds(deps: DataSyncKindDeps): KindDefinition<SyncRunInp
 
     async onRedrive(job: { input: unknown }, _scope: unknown, tx: SqlExecutor) {
       return reopenRun(tx, (job.input as SyncRunInput).runId)
+    },
+
+    /**
+     * The rest of core's `finalizeRun`, which core itself skips on every durable run.
+     *
+     * Without this a host is told the run is over by the `sync_runs` row alone: the progress
+     * job an operator watches never resolves, the integration's health state never moves, and
+     * `data_sync.run.completed` — a tenant webhook — is never dispatched. The decoration that
+     * makes a run durable is supposed to be invisible to a host, and those three are exactly
+     * how a host would notice.
+     *
+     * At-most-once and best-effort by the mechanism's contract, which is the same standing
+     * these have in core: a webhook that fails there has never un-completed a run either.
+     */
+    async onAfterTransition(job: { id: string; input: unknown; status: string; errorMessage: string | null; createdBy: string | null }, scope: { tenantId: string; organizationId: string | null }) {
+      const { runId } = job.input as SyncRunInput
+      const status = job.status === 'completed' ? 'completed' : job.status === 'cancelled' ? 'cancelled' : 'failed'
+      const { runService, finalize } = await deps.resolve()
+
+      const run = (await runService.getRun(runId, scope)) as
+        | (Parameters<typeof replayFinalize>[1] & Record<string, unknown>)
+        | null
+      // A run that has been hard-deleted since the job finished is not an error to report:
+      // there is nothing left to resolve, and the job's own terminal state is already correct.
+      if (!run) return
+
+      await replayFinalize(finalize, run, status, job.errorMessage, scope, job.createdBy)
     },
   }
 

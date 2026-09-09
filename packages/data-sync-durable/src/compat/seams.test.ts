@@ -59,6 +59,37 @@ describe('the seams the durable adopter decorates', () => {
     expect(engine).toMatch(/if \(run\.status !== status\) \{/)
   })
 
+  it('still ends finalizeRun with exactly the three side effects the adopter replays', () => {
+    // The skipped tail. Core stops at its "another worker already finalized this" branch on
+    // every durable run, so everything after it is ours to replay — the progress job, the
+    // operational writes and the lifecycle event (see `replayFinalize`).
+    //
+    // Asserted here because the failure mode is silent in both directions: a side effect
+    // upstream *adds* to this tail would simply never happen on a durable run, and nothing in
+    // a host would report it missing. That is precisely how the first three came to be dropped
+    // for a whole release.
+    const start = engine.indexOf('async function finalizeRun')
+    // Bounded at the next declaration: unbounded, this runs to the end of the file and sweeps
+    // up `runImport`/`runExport`, which make the same kinds of call for their own reasons.
+    const next = engine.indexOf('\n  return {', start + 1)
+    const tail = engine.slice(start, next === -1 ? undefined : next)
+
+    for (const call of ['progressService.completeJob(', 'progressService.failJob(', 'progressService.markCancelled(']) {
+      expect({ call, present: tail.includes(call) }).toEqual({ call, present: true })
+    }
+    expect(tail).toMatch(/emitDataSyncEvent\('data_sync\.run\.completed'/)
+    expect(tail).toMatch(/emitDataSyncEvent\('data_sync\.run\.failed'/)
+    expect(tail).toMatch(/emitDataSyncEvent\('data_sync\.run\.cancelled'/)
+
+    // The gate on the two operational writes, and deliberately not on the event.
+    expect(tail).toMatch(/enabled: operationalTelemetry/)
+
+    // A fourth kind of side effect in the tail means `replayFinalize` is now incomplete. The
+    // count is the tripwire: it is meant to be re-read, not bumped.
+    const awaited = tail.match(/await (progressService|updateOperationalState|writeOperationalLog|emitDataSyncEvent)\b/g) ?? []
+    expect(awaited.length).toBe(12)
+  })
+
   it('still asks whether to cancel at every batch boundary', () => {
     // The hand-back point. Without it a slice has nowhere to stop, and the mechanism's
     // headline property — a deploy does not kill a multi-day run — is gone.

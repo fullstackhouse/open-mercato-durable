@@ -85,8 +85,10 @@ export function recordSlice(
        * Core's `finalizeRun` compares what comes back to what it asked for, and stays silent
        * when they differ — the branch it has for "another worker already finalized this". So
        * this both captures the outcome and suppresses the progress write, the operational log
-       * and the lifecycle event, leaving all three to the durable terminal transition, which
-       * writes them in the same transaction as the job's own terminal state.
+       * and the lifecycle event. The run's terminal status is then written by `onTransition`,
+       * in the same transaction as the job's own; the three suppressed side effects are
+       * replayed by `replayFinalize` after that commit, since an event inside a transaction
+       * that can still roll back is a lie waiting to happen.
        */
       async markStatus(runId, status, scope, error) {
         if (status === 'completed' || status === 'failed' || status === 'cancelled') {
@@ -228,4 +230,139 @@ export async function reopenRun(tx: SqlExecutor, runId: string): Promise<{ match
     [runId],
   )
   return { matched: result.rowCount }
+}
+
+/**
+ * The services core's `finalizeRun` reaches for once the status is written.
+ *
+ * Named separately from the slice's dependencies because these are needed at a different
+ * moment: the slice runs under a lease, this runs after the job's terminal transition has
+ * committed, on whatever worker got there.
+ */
+export type FinalizeDeps = {
+  progressService: ProgressServiceLike
+  integrationLogService: { write(entry: Record<string, unknown>, scope: SyncScope): Promise<unknown> }
+  integrationStateService?: {
+    upsert(integrationId: string, patch: Record<string, unknown>, scope: SyncScope): Promise<unknown>
+  } | null
+  /** `adapter.operationalTelemetry === true`, which is core's own gate on the two writes below. */
+  operationalTelemetry(integrationId: string): boolean
+  emitEvent(name: string, payload: Record<string, unknown>): Promise<void>
+}
+
+/** The run fields core's tail reads. */
+export type FinalizedRun = {
+  id: string
+  integrationId: string
+  entityType: string
+  direction: string
+  progressJobId?: string | null
+  createdCount?: number
+  updatedCount?: number
+  skippedCount?: number
+  failedCount?: number
+  batchesCompleted?: number
+}
+
+/**
+ * Everything core's `finalizeRun` does after the status write, done here instead.
+ *
+ * Core stops at its "another worker already finalized this" branch on every durable run — that
+ * is deliberate, and it is what lets the durable transition own the terminal state (see
+ * `markStatus` above). But stopping there also skips the three things that came after it: the
+ * progress job is never resolved, the operational log never written, and the lifecycle event
+ * never emitted. Left unreplayed, a host loses the progress indicator an operator watches, the
+ * integration health state, and `data_sync.run.completed` — which is dispatched to tenant
+ * webhooks, so its absence is visible outside the app entirely.
+ *
+ * This runs after the commit, not inside it: events and enqueues must not sit in a transaction
+ * that can still roll back, and the mechanism gives after-commit hooks at-most-once semantics
+ * for exactly this. A throw here is logged and dropped rather than retried — the same standing
+ * core's own tail has, where a failed webhook has never un-completed a run.
+ */
+export async function replayFinalize(
+  deps: FinalizeDeps,
+  run: FinalizedRun,
+  status: SyncTerminalStatus,
+  errorMessage: string | null,
+  scope: SyncScope,
+  userId: string | null,
+): Promise<void> {
+  const progressScope = { tenantId: scope.tenantId, organizationId: scope.organizationId, userId: userId ?? undefined }
+  const enabled = deps.operationalTelemetry(run.integrationId)
+
+  if (run.progressJobId) {
+    const progress = deps.progressService as unknown as Record<string, ((...args: unknown[]) => Promise<unknown>) | undefined>
+    if (status === 'completed') {
+      await progress.completeJob?.(
+        run.progressJobId,
+        {
+          resultSummary: {
+            createdCount: run.createdCount,
+            updatedCount: run.updatedCount,
+            skippedCount: run.skippedCount,
+            failedCount: run.failedCount,
+            batchesCompleted: run.batchesCompleted,
+          },
+        },
+        progressScope,
+      )
+    } else if (status === 'failed') {
+      await progress.failJob?.(run.progressJobId, { errorMessage: errorMessage ?? 'Sync run failed' }, progressScope)
+    } else {
+      await progress.markCancelled?.(run.progressJobId, progressScope)
+    }
+  }
+
+  const health = status === 'completed' ? 'healthy' : status === 'cancelled' ? 'degraded' : 'unhealthy'
+  if (enabled && deps.integrationStateService) {
+    await deps.integrationStateService.upsert(
+      run.integrationId,
+      { lastHealthStatus: health, lastHealthCheckedAt: new Date() },
+      scope,
+    )
+  }
+
+  if (enabled) {
+    const log =
+      status === 'completed'
+        ? {
+            level: 'info',
+            message: 'Sync run completed',
+            payload: {
+              operationalStatus: 'completed',
+              summary: `Sync completed with ${run.createdCount ?? 0} created, ${run.updatedCount ?? 0} updated, ${run.failedCount ?? 0} failed.`,
+              createdCount: run.createdCount,
+              updatedCount: run.updatedCount,
+              skippedCount: run.skippedCount,
+              failedCount: run.failedCount,
+              batchesCompleted: run.batchesCompleted,
+            },
+          }
+        : status === 'cancelled'
+          ? {
+              level: 'warn',
+              message: 'Sync run cancelled',
+              payload: { operationalStatus: 'cancelled', summary: 'The sync run was cancelled before completion.' },
+            }
+          : {
+              level: 'error',
+              message: errorMessage ?? 'Sync run failed',
+              payload: { operationalStatus: 'failed', summary: errorMessage ?? 'The sync run failed.' },
+            }
+
+    await deps.integrationLogService.write({ integrationId: run.integrationId, runId: run.id, ...log }, scope)
+  }
+
+  await deps.emitEvent(`data_sync.run.${status}`, {
+    runId: run.id,
+    integrationId: run.integrationId,
+    entityType: run.entityType,
+    direction: run.direction,
+    // Only the failure event carries this, and a subscriber that switches on it would see
+    // every durable failure as an unexplained one if it were dropped.
+    ...(status === 'failed' ? { error: errorMessage ?? null } : {}),
+    tenantId: scope.tenantId,
+    organizationId: scope.organizationId,
+  })
 }
