@@ -93,23 +93,47 @@ else
   confirm_published "$ADOPTER"
 fi
 
+# Reads the configured trusted publishers, and says so when it could not tell.
+#
+# npm exits 0 when it needed a one-time password and could not ask for one, so the exit code
+# says nothing here either. Three outcomes, kept apart on purpose: configured, not configured,
+# and could-not-check — treating the last as "not configured" would send an operator round the
+# loop again for no reason.
+trust_state() {
+  local out
+  out="$(npm trust list "$1" 2>&1 || true)"
+  if grep -qiE "EOTP|requires a one-time password" <<< "$out"; then echo unknown; return; fi
+  if grep -qF "$REPO" <<< "$out"; then echo configured; else echo absent; fi
+}
+
 step "Handing publishing rights to CI"
 # From here npm accepts publishes from this repository's workflow over OIDC, with no token
 # stored anywhere.
+#
+# These calls deliberately are NOT redirected. Every trust operation needs a one-time password,
+# and npm masks the approval URL the moment it cannot see a terminal — so capturing the output
+# to inspect it is exactly what stops the operator from being able to approve. That is what
+# went wrong the first time this ran.
 for package in "$MECHANISM" "$ADOPTER"; do
   # npm answers a bare 400 when the package does not exist, which reads as a problem with the
   # trust configuration rather than with the publish that never happened.
   published "$package" || fail "$package is not on npm yet, so it cannot have a trusted publisher. Publish it first."
-  if npm trust github "$package" --file "$WORKFLOW" --repo "$REPO" --yes > /tmp/bootstrap-trust.log 2>&1; then
-    pass "trusted publisher set for $package"
-  else
-    if grep -qi "already" /tmp/bootstrap-trust.log; then
-      skip "$package already has a trusted publisher"
-    else
-      tail -10 /tmp/bootstrap-trust.log >&2
-      fail "could not configure the trusted publisher for $package"
-    fi
-  fi
+
+  case "$(trust_state "$package")" in
+    configured)
+      skip "$package already trusts $REPO"
+      continue
+      ;;
+  esac
+
+  echo "  npm needs a one-time password — approve it in the browser it opens."
+  npm trust github "$package" --file "$WORKFLOW" --repo "$REPO" --yes || true
+
+  case "$(trust_state "$package")" in
+    configured) pass "trusted publisher set for $package" ;;
+    absent)     fail "$package still does not trust $REPO. Set it by hand: https://www.npmjs.com/package/$package/access" ;;
+    unknown)    printf '\033[33m  ? could not verify %s (npm wanted another one-time password). Check: https://www.npmjs.com/package/%s/access\033[0m\n' "$package" "$package" ;;
+  esac
 done
 
 step "Tagging, so semantic-release continues from here"
