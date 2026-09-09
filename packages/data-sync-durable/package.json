@@ -32,7 +32,7 @@
     "gen:mirror": "node scripts/gen-mirror.mjs",
     "prebuild": "node scripts/gen-mirror.mjs --check",
     "build": "node build.mjs",
-    "prepack": "yarn build",
+    "prepack": "node scripts/gen-mirror.mjs --check && node build.mjs",
     "watch": "node watch.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
