@@ -6,7 +6,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "node scripts/set-release-version.mjs ${nextRelease.version} && yarn install --mode update-lockfile"
+        "prepareCmd": "node scripts/set-release-version.mjs ${nextRelease.version} && yarn install --no-immutable"
       }
     ],
     [

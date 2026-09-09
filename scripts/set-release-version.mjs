@@ -14,9 +14,14 @@
 // locally, because the workspace's version satisfies the range.
 //
 // That rewrite lands in `yarn.lock` as a descriptor, so the lockfile is stale the moment this
-// runs. The release refreshes it (`yarn install --mode update-lockfile`) and commits it
+// runs. The release refreshes it with a real `yarn install --no-immutable` and commits it
 // alongside the manifests — without that, the release itself is fine and the *next* CI run
 // fails on `yarn install --immutable`, a failure that points at the commit after the guilty one.
+//
+// It has to be a real install. `--mode update-lockfile` looks like the tighter tool and is the
+// wrong one: it resolves without fetching, so it writes a lockfile with no checksums — a 25k
+// line rewrite that every later `--immutable` install rejects. `--no-immutable` is needed
+// because yarn defaults to immutable whenever CI is set.
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
