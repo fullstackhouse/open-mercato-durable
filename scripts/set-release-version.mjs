@@ -14,14 +14,22 @@
 // locally, because the workspace's version satisfies the range.
 //
 // That rewrite lands in `yarn.lock` as a descriptor, so the lockfile is stale the moment this
-// runs. The release refreshes it with a real `yarn install --no-immutable` and commits it
-// alongside the manifests — without that, the release itself is fine and the *next* CI run
-// fails on `yarn install --immutable`, a failure that points at the commit after the guilty one.
+// runs. The release refreshes it and commits it alongside the manifests — without that, the
+// release itself is fine and the *next* CI run fails on `yarn install --immutable`, a failure
+// that points at the commit after the guilty one.
 //
-// It has to be a real install. `--mode update-lockfile` looks like the tighter tool and is the
-// wrong one: it resolves without fetching, so it writes a lockfile with no checksums — a 25k
-// line rewrite that every later `--immutable` install rejects. `--no-immutable` is needed
-// because yarn defaults to immutable whenever CI is set.
+// Two things about that refresh, both learned the hard way:
+//
+//   - It happens in a *second* `exec` plugin listed after both npm plugins, not here. npm runs
+//     `npm version` in each package between the two, and a lockfile written before that is not
+//     the one that gets committed. Regenerating last is the only ordering that holds.
+//   - It has to be a real install, run through `corepack` so it is this project's Yarn rather
+//     than whatever `yarn` resolves to on the runner. `--mode update-lockfile` looks like the
+//     tighter tool and is the wrong one: it resolves without fetching and writes a lockfile
+//     with no checksums, which every later `--immutable` install rejects.
+//
+// The refresh then re-runs the install with `--immutable`, so a lockfile the release cannot
+// itself verify fails the release instead of the next person's push.
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'

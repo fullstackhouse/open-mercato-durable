@@ -6,7 +6,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "node scripts/set-release-version.mjs ${nextRelease.version} && yarn install --no-immutable"
+        "prepareCmd": "node scripts/set-release-version.mjs ${nextRelease.version}"
       }
     ],
     [
@@ -19,6 +19,12 @@
       "@semantic-release/npm",
       {
         "pkgRoot": "packages/data-sync-durable"
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "corepack yarn install --no-immutable && corepack yarn install --immutable"
       }
     ],
     [
