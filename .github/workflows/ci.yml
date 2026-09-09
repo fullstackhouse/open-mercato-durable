@@ -229,3 +229,58 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Read by @semantic-release/npm, which writes it into the npmrc it hands `npm publish`.
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # Throwaway diagnostic for the trusted-publishing 403. Manual only; publishes nothing.
+  #
+  # It lives in this file rather than its own because that is the whole point: npm binds a
+  # trusted publisher to a workflow *file*, and the token exchange refuses anything else with a
+  # deliberately vague "package not found". A probe in its own workflow therefore cannot see the
+  # configuration it is trying to read — verified, including against cerber, where trusted
+  # publishing demonstrably works.
+  oidc-probe:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Probe
+        run: |
+          node -e '
+            const PKGS = [
+              "@fullstackhouse/open-mercato-durable-work",
+              "@fullstackhouse/open-mercato-data-sync-durable",
+              "@fullstackhouse/cerber",
+            ];
+            const REG = "https://registry.npmjs.org";
+            (async () => {
+              const url = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
+              url.searchParams.append("audience", "npm:registry.npmjs.org");
+              const r = await fetch(url, { headers: { Authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` } });
+              const { value } = await r.json();
+              const claims = JSON.parse(Buffer.from(value.split(".")[1], "base64").toString());
+              // Claims only. The token itself is never printed.
+              console.log("=== what this workflow presents ===");
+              for (const k of ["repository", "repository_visibility", "workflow_ref", "job_workflow_ref", "ref", "environment"]) {
+                console.log(`  ${k}:`, claims[k] ?? "(absent)");
+              }
+              for (const pkg of PKGS) {
+                console.log(`\n=== ${pkg} ===`);
+                const esc = pkg.replace("/", "%2f");
+                const ex = await fetch(`${REG}/-/npm/v1/oidc/token/exchange/package/${esc}`, {
+                  method: "POST", headers: { Authorization: `Bearer ${value}` },
+                });
+                const body = await ex.json();
+                console.log("  exchange:", ex.status, body.token ? "(token issued)" : JSON.stringify(body));
+                if (!body.token) continue;
+                for (const path of [`/-/package/${esc}/trust`, `/-/package/${esc}/collaborators`, `/-/npm/v1/security/audits/quick`]) {
+                  if (path.includes("audits")) continue;
+                  const t = await fetch(`${REG}${path}`, { headers: { Authorization: `Bearer ${body.token}` } });
+                  let out; try { out = JSON.stringify(await t.json()); } catch { out = "(unparseable)"; }
+                  console.log(`  GET ${path} ->`, t.status, out?.slice(0, 600));
+                }
+              }
+            })().catch((e) => { console.error(e); process.exit(1); });
+          '
