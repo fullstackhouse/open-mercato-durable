@@ -20,10 +20,41 @@ import type {
   TransportAdapter,
 } from './types'
 
-type PgBossModule = typeof import('pg-boss')
-// pg-boss 12 exports the class by name, not as a default.
-type PgBossInstance = InstanceType<PgBossModule['PgBoss']>
-type PgBossJob = import('pg-boss').Job<Delivery> & { signal?: AbortSignal }
+// pg-boss's surface, described structurally rather than imported.
+//
+// `typeof import('pg-boss')` is more faithful and is the wrong tool here. This package's
+// `exports` map points its `types` condition at these sources, so a host typechecks this file —
+// and pg-boss is an *optional* peer. A host running the BullMQ transport, which therefore never
+// installs pg-boss, failed its own typecheck on a file it never loads. Found in a real adopter,
+// not in this repo, because here the dependency is always present.
+//
+// Only what this adapter calls is described. pg-boss 12 exports the class by name, not as a
+// default. The runtime import below is unchanged and still a literal, so bundlers can see it.
+type PgBossSendOptions = {
+  singletonKey?: string
+  singletonSeconds?: number
+  startAfter?: number
+  retryLimit?: number
+  retryDelay?: number
+  retryBackoff?: boolean
+  retryDelayMax?: number
+  db?: unknown
+}
+
+type PgBossJob = { id: string; data: Delivery; state?: string; signal?: AbortSignal }
+
+type PgBossInstance = {
+  start(): Promise<unknown>
+  stop(options?: { graceful?: boolean; close?: boolean; timeout?: number }): Promise<unknown>
+  createQueue(name: string, options?: { expireInSeconds?: number }): Promise<unknown>
+  send(name: string, data: object, options?: PgBossSendOptions): Promise<string | null>
+  deleteJob(name: string, id: string): Promise<unknown>
+  getJobById(name: string, id: string): Promise<{ state?: string } | null>
+  work(name: string, options: { batchSize?: number }, handler: (jobs: PgBossJob[]) => Promise<unknown>): Promise<string>
+  offWork(name: string, options?: { id?: string }): Promise<unknown>
+}
+
+type PgBossModule = { PgBoss: new (options: { connectionString: string; schema?: string }) => PgBossInstance }
 
 export type PgBossTransportOptions = {
   connectionString: string
@@ -37,7 +68,13 @@ let cached: PgBossModule | null = null
 async function pgboss(): Promise<PgBossModule> {
   if (cached) return cached
   try {
-    cached = await import('pg-boss')
+    // `@ts-expect-error` is the wrong tool here: in this repo the dependency IS installed, so
+    // there is no error to expect and the build would fail on the assertion itself. The error
+    // exists only in a host that never installed this optional peer — the case being suppressed.
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore -- optional peer: absent in a host that runs another transport, and this file
+    // must still typecheck there. The structural types above are why nothing else needs it.
+    cached = (await import('pg-boss')) as unknown as PgBossModule
     return cached
   } catch (error) {
     throw new Error(
@@ -182,7 +219,7 @@ export class PgBossTransport implements TransportAdapter {
   async bind(queue: string, handler: DeliveryHandler, opts: BindOptions): Promise<BoundWorker> {
     const boss = await this.ensureQueue(queue, Math.ceil(opts.activeTimeoutMs / 1000))
 
-    const workerId = await boss.work<Delivery>(
+    const workerId = await boss.work(
       queue,
       { batchSize: opts.concurrency },
       async (jobs: PgBossJob[]) => {

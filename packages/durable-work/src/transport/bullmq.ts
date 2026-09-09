@@ -21,9 +21,47 @@ import type {
   TransportAdapter,
 } from './types'
 
-type BullMQModule = typeof import('bullmq')
-type BullQueue = InstanceType<BullMQModule['Queue']>
-type BullJob = InstanceType<BullMQModule['Job']>
+// BullMQ's surface, described structurally rather than imported — same reason as the pgboss
+// adapter, and the same real failure waiting to happen: `types` resolves to these sources, so a
+// host typechecks this file, and bullmq is an *optional* peer. Only what this adapter calls is
+// described; the runtime import stays a literal so bundlers can see it.
+type BullJobOptions = {
+  jobId?: string
+  delay?: number
+  attempts?: number
+  backoff?: { type: 'fixed' | 'exponential'; delay: number }
+  removeOnComplete?: { age?: number; count?: number }
+  removeOnFail?: { age?: number; count?: number }
+}
+
+type BullJob = {
+  id?: string | null
+  data: unknown
+  attemptsMade: number
+  opts: { attempts?: number }
+  updateData(data: never): Promise<unknown>
+  moveToDelayed(timestamp: number, token?: string): Promise<unknown>
+  getState(): Promise<string>
+}
+
+type BullQueue = {
+  add(name: string, data: unknown, opts?: BullJobOptions): Promise<unknown>
+  remove(jobId: string): Promise<unknown>
+  getJob(jobId: string): Promise<BullJob | undefined | null>
+  upsertJobScheduler(key: string, repeat: { every: number }, job: { name: string; data: unknown }): Promise<unknown>
+  close(): Promise<void>
+}
+
+type BullMQModule = {
+  Queue: new (name: string, opts: { connection: never; prefix?: string }) => BullQueue
+  Worker: new (
+    name: string,
+    processor: (job: BullJob, token?: string, signal?: AbortSignal) => Promise<unknown>,
+    opts: { connection: never; prefix?: string; concurrency?: number; lockDuration?: number },
+  ) => ClosableWorker & { close(force?: boolean): Promise<void> }
+  DelayedError: new (message?: string) => Error
+  UnrecoverableError: new (message?: string) => Error
+}
 // Structural rather than `InstanceType<Worker>`: the concrete worker type is parameterised by
 // the processor's return type and by a backend generic that differs between BullMQ 5 and 6,
 // and nothing here needs more of it than shutdown.
@@ -39,7 +77,12 @@ let cached: BullMQModule | null = null
 async function bullmq(): Promise<BullMQModule> {
   if (cached) return cached
   try {
-    cached = await import('bullmq')
+    // `@ts-expect-error` is the wrong tool here: in this repo the dependency IS installed, so
+    // there is no error to expect and the build would fail on the assertion itself. The error
+    // exists only in a host that never installed this optional peer — the case being suppressed.
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore -- optional peer, exactly as in the pgboss adapter. See the note there.
+    cached = (await import('bullmq')) as unknown as BullMQModule
     return cached
   } catch (error) {
     throw new Error(
