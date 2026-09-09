@@ -2112,7 +2112,7 @@ __metadata:
   resolution: "@fullstackhouse/open-mercato-data-sync-durable@workspace:packages/data-sync-durable"
   dependencies:
     "@eslint/js": "npm:^9.0.0"
-    "@fullstackhouse/open-mercato-durable-work": "npm:^0.1.2"
+    "@fullstackhouse/open-mercato-durable-work": "npm:^0.1.3"
     "@mikro-orm/core": "npm:^7.1.8"
     "@mikro-orm/migrations": "npm:^7.1.8"
     "@mikro-orm/postgresql": "npm:^7.1.8"
@@ -2135,7 +2135,7 @@ __metadata:
     vitest: "npm:^3.0.0"
     zod: "npm:^4.4.3"
   peerDependencies:
-    "@fullstackhouse/open-mercato-durable-work": ^0.1.2
+    "@fullstackhouse/open-mercato-durable-work": ^0.1.3
     "@mikro-orm/core": ">=7.0.0"
     "@mikro-orm/migrations": ">=7.0.0"
     "@mikro-orm/postgresql": ">=7.0.0"
@@ -2150,7 +2150,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@fullstackhouse/open-mercato-durable-work@npm:*, @fullstackhouse/open-mercato-durable-work@npm:^0.1.2, @fullstackhouse/open-mercato-durable-work@workspace:packages/durable-work":
+"@fullstackhouse/open-mercato-durable-work@npm:*, @fullstackhouse/open-mercato-durable-work@npm:^0.1.3, @fullstackhouse/open-mercato-durable-work@workspace:packages/durable-work":
   version: 0.0.0-use.local
   resolution: "@fullstackhouse/open-mercato-durable-work@workspace:packages/durable-work"
   dependencies:
@@ -10467,9 +10467,9 @@ __metadata:
   linkType: hard
 
 "binary-extensions@npm:^3.0.0":
-  version: 3.1.0
-  resolution: "binary-extensions@npm:3.1.0"
-  checksum: 10/43983ac60c0d14511f5b2045cd5942d27aa945c48669ac06fca59d4edfe901a3916a5033b7de339616d9c0c10ec7efc8da397c038cf98cc5d86260dabee3e3ce
+  version: 3.2.0
+  resolution: "binary-extensions@npm:3.2.0"
+  checksum: 10/efe29cd70f17943285199b86add3ed4012af8b191d6fa689f1055e1862e9af174856298fc9ff41e6e8b01470648c34a6bcf99547ac1168887f2442aa2c5c8d7f
   languageName: node
   linkType: hard
 
