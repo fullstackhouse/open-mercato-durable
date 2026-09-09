@@ -200,18 +200,16 @@ jobs:
       contents: write # the version commit, the tag, the GitHub release
       issues: write # release comments
       pull-requests: write # release comments
-      # NO `id-token: write`, deliberately, and it is load-bearing.
+      id-token: write # npm trusted publishing, and provenance on the artifact
+      # The permission alone is not enough: only @semantic-release/npm v13+ knows to mint a
+      # token from it. Older majors go straight to `npm whoami`, which needs a token that does
+      # not exist here, and fail in verifyConditions before reading a single commit. That is why
+      # the semantic-release pin is a major range, not a caret over whatever installs.
       #
-      # Trusted publishing was the original design and it got as far as the registry refusing
-      # the PUT with "OIDC permission denied for this action", while the token exchange in the
-      # same run succeeded. Granting the permission is what makes both npm and
-      # @semantic-release/npm prefer that path: npm's `oidc()` sets the exchanged token at
-      # *user* config level, which is the level semantic-release's `--userconfig` npmrc
-      # occupies, so it overrides the NPM_TOKEN written there rather than falling back to it.
-      # Without the permission neither reaches for OIDC and the granular token is used.
-      #
-      # Provenance goes with it — npm can only sign a provenance statement with an id-token —
-      # so `publishConfig.provenance` is off in both packages. Restoring one restores the other.
+      # The package side matters too, and cost a day: a package whose `mfa` setting is `publish`
+      # refuses an OIDC publish with "OIDC permission denied for this action" *after* the token
+      # exchange has already succeeded, which reads like a misconfigured trusted publisher and
+      # is not one. `npm access set mfa=automation <pkg>` is the setting that permits it.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -232,8 +230,6 @@ jobs:
       - run: yarn semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Read by @semantic-release/npm, which writes it into the npmrc it hands `npm publish`.
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # Throwaway diagnostic for the trusted-publishing 403. Manual only; publishes nothing.
   #
