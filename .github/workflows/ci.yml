@@ -308,5 +308,7 @@ jobs:
         if: inputs.publish_probe
         working-directory: packages/durable-work
         run: |
-          npm version 0.1.1-oidcprobe.${{ github.run_number }} --no-git-tag-version --allow-same-version
+          # Written directly rather than with `npm version`: that reifies the whole workspace,
+          # and the adopter's peer range points at a version that is not on npm yet.
+          node -e 'const f="package.json",p=require("./"+f);p.version="0.1.1-oidcprobe.${{ github.run_number }}";require("fs").writeFileSync(f,JSON.stringify(p,null,2)+"\n")'
           npm publish --tag oidc-probe
