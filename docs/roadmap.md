@@ -26,7 +26,7 @@ a `workflows` adopter.
 | 5 | pgboss adapter | full harness suite on pgboss; transactional start rollback leaves nothing | done — conformance + transactional start, mutation-checked |
 | 6 | OM module surface (entity, migration, DI, operator API, CLI, events, progress mirror) | done — exercised against a booted sandbox; `TC-DW-00x` e2e specs pending |
 | 7 | `data-sync-durable` drop-in: decorated run service, kinds, REPLACED set (di, start-run, workers), adopt-on-delivery, compat probe, sandbox `example_sync` | demonstrated against a booted sandbox — see below; 9 e2e specs green in the ephemeral runner | done |
-| 8 | soak, install lane, docs, release 0.1.0, repo public | soak invariants; install lane green on both channels | |
+| 8 | soak, install lane, docs, release 0.1.0, repo public | soak invariants; install lane green on both channels | done — 0.1.0 on npm, repo public, releases automated |
 | 9 | first production adopter: staging → prod; then `scheduler-durable` | separate plan | |
 
 ## Phase 0 — where it stands
@@ -146,11 +146,19 @@ which is worth recording because both would have looked identical from the outsi
   It also surfaced a real publishing constraint: `yarn pack` rewrites `workspace:^` into a
   version range, so `data-sync-durable` ships depending on `durable-work@^0.0.1`. **`durable-work`
   must be published first**, and its version must be one that exists on npm.
-- **The npm release** (`durable-work@0.1.0`, `data-sync-durable@0.1.0`). Deliberately deferred:
-  the repository is public and both packages install straight from git with no credentials, so
-  a registry buys `mercato module add` ergonomics and outside consumption, not access. When it
-  happens, `durable-work` must go first — the adopter's peer range has to be satisfiable.
+- ~~The npm release.~~ Done: both packages are on npm at `0.1.0`, and the repo went public on
+  2026-09-08. Releases are automatic from there — a green merge to `main` runs
+  semantic-release, which computes one version from the conventional commits, writes it to both
+  packages in lockstep, and publishes with provenance over npm trusted publishing. No token is
+  stored anywhere; CI mints one from its OIDC identity per publish.
 
-  The repo went public on 2026-09-08.
+  Two things about that path are worth keeping, because neither is visible from the config:
+  `durable-work` publishes before `data-sync-durable`, since the adopter's peer range has to be
+  satisfiable at the moment it lands; and trusted publishing needs *both* `id-token: write` and
+  `@semantic-release/npm` v13 or newer — on an older major the job fails in `verifyConditions`
+  with an error naming a missing token rather than the version that cannot use one.
+
+  The one-time bootstrap that automation could not do for itself — npm will not create a package
+  over OIDC — is `scripts/bootstrap-release.sh`, kept because it is also the recovery path.
 - **Phase 9, the first production rollout.** On hold until the adopter is ready; it is a
   separate plan.
