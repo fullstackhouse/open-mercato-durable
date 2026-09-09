@@ -46,3 +46,7 @@ yarn-error.log*
 
 apps/sandbox/data
 apps/sandbox/storage/attachments
+
+# Written by `npm version`, which @semantic-release/npm runs on every release. This is a yarn
+# repo; a lockfile npm maintains and nobody reads is worse than none at all.
+package-lock.json

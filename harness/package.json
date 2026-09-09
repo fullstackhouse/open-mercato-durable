@@ -12,7 +12,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@fullstackhouse/open-mercato-durable-work": "workspace:*"
+    "@fullstackhouse/open-mercato-durable-work": "*"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
