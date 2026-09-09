@@ -5,11 +5,6 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
-    inputs:
-      publish_probe:
-        description: 'Publish a throwaway prerelease over OIDC, to isolate npm from semantic-release'
-        type: boolean
-        default: false
   schedule:
     # Nightly, for the install lane — the one check that needs the packages packed and
     # reinstalled rather than linked.
@@ -206,10 +201,12 @@ jobs:
       # not exist here, and fail in verifyConditions before reading a single commit. That is why
       # the semantic-release pin is a major range, not a caret over whatever installs.
       #
-      # The package side matters too, and cost a day: a package whose `mfa` setting is `publish`
-      # refuses an OIDC publish with "OIDC permission denied for this action" *after* the token
-      # exchange has already succeeded, which reads like a misconfigured trusted publisher and
-      # is not one. `npm access set mfa=automation <pkg>` is the setting that permits it.
+      # The npm side matters too, and cost a day: a trusted publisher defaults to *staged*
+      # publishing only, and a direct `npm publish` is then refused with "OIDC permission denied
+      # for this action" — after the token exchange has already succeeded, which reads like a
+      # misconfigured publisher and is not one. The error is literal: the publisher is fine, the
+      # *action* was not allowed. "Allow npm publish" on the package's trusted publisher is the
+      # box that permits it.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -231,80 +228,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Throwaway diagnostic for the trusted-publishing 403. Manual only; publishes nothing.
-  #
-  # It lives in this file rather than its own because that is the whole point: npm binds a
-  # trusted publisher to a workflow *file*, and the token exchange refuses anything else with a
-  # deliberately vague "package not found". A probe in its own workflow therefore cannot see the
-  # configuration it is trying to read — verified, including against cerber, where trusted
-  # publishing demonstrably works.
-  oidc-probe:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Probe
-        run: |
-          node -e '
-            const PKGS = [
-              "@fullstackhouse/open-mercato-durable-work",
-              "@fullstackhouse/open-mercato-data-sync-durable",
-              "@fullstackhouse/cerber",
-            ];
-            const REG = "https://registry.npmjs.org";
-            (async () => {
-              const url = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
-              url.searchParams.append("audience", "npm:registry.npmjs.org");
-              const r = await fetch(url, { headers: { Authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` } });
-              const { value } = await r.json();
-              const claims = JSON.parse(Buffer.from(value.split(".")[1], "base64").toString());
-              // Claims only. The token itself is never printed.
-              console.log("=== what this workflow presents ===");
-              for (const k of ["repository", "repository_visibility", "workflow_ref", "job_workflow_ref", "ref", "environment"]) {
-                console.log(`  ${k}:`, claims[k] ?? "(absent)");
-              }
-              for (const pkg of PKGS) {
-                console.log(`\n=== ${pkg} ===`);
-                const esc = pkg.replace("/", "%2f");
-                const ex = await fetch(`${REG}/-/npm/v1/oidc/token/exchange/package/${esc}`, {
-                  method: "POST", headers: { Authorization: `Bearer ${value}` },
-                });
-                const body = await ex.json();
-                console.log("  exchange:", ex.status, body.token ? "(token issued)" : JSON.stringify(body));
-                if (!body.token) continue;
-                for (const path of [`/-/package/${esc}/trust`, `/-/package/${esc}/collaborators`, `/-/npm/v1/security/audits/quick`]) {
-                  if (path.includes("audits")) continue;
-                  const t = await fetch(`${REG}${path}`, { headers: { Authorization: `Bearer ${body.token}` } });
-                  let out; try { out = JSON.stringify(await t.json()); } catch { out = "(unparseable)"; }
-                  console.log(`  GET ${path} ->`, t.status, out?.slice(0, 600));
-                }
-              }
-            })().catch((e) => { console.error(e); process.exit(1); });
-          '
-      # Does *npm* accept an OIDC publish for this package, with semantic-release out of the
-      # picture entirely? A throwaway prerelease under its own dist-tag, so `latest` never moves.
-      - uses: actions/checkout@v4
-        if: inputs.publish_probe
-      - uses: actions/setup-node@v4
-        if: inputs.publish_probe
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          registry-url: https://registry.npmjs.org
-      - run: corepack enable
-        if: inputs.publish_probe
-      - run: npm install -g npm@latest
-        if: inputs.publish_probe
-      - run: yarn install --immutable
-        if: inputs.publish_probe
-      - name: Publish probe
-        if: inputs.publish_probe
-        working-directory: packages/durable-work
-        run: |
-          # Written directly rather than with `npm version`: that reifies the whole workspace,
-          # and the adopter's peer range points at a version that is not on npm yet.
-          node -e 'const f="package.json",p=require("./"+f);p.version="0.1.1-oidcprobe.${{ github.run_number }}";require("fs").writeFileSync(f,JSON.stringify(p,null,2)+"\n")'
-          npm publish --tag oidc-probe
