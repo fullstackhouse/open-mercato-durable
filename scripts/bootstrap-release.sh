@@ -131,7 +131,17 @@ for package in "$MECHANISM" "$ADOPTER"; do
 
   case "$(trust_state "$package")" in
     configured) pass "trusted publisher set for $package" ;;
-    absent)     fail "$package still does not trust $REPO. Set it by hand: https://www.npmjs.com/package/$package/access" ;;
+    absent)
+      # Observed: two packages with identical repository metadata, configured seconds apart —
+      # the first accepted, the second answered a bare 400 with no body. Re-running has worked,
+      # so this is reported as retryable rather than as a dead end.
+      printf '\033[31m  ✗ %s still does not trust %s\033[0m\n' "$package" "$REPO" >&2
+      printf '    npm answers a bare 400 with no explanation here, and it is often transient.\n' >&2
+      printf '    Re-run this script — it skips whatever is already done.\n' >&2
+      printf '    Or set it in the browser: https://www.npmjs.com/package/%s/access\n' "$package" >&2
+      printf '    (GitHub Actions · repo %s · workflow %s)\n' "$REPO" "$WORKFLOW" >&2
+      exit 1
+      ;;
     unknown)    printf '\033[33m  ? could not verify %s (npm wanted another one-time password). Check: https://www.npmjs.com/package/%s/access\033[0m\n' "$package" "$package" ;;
   esac
 done
