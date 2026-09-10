@@ -10,6 +10,8 @@ export type DurableWorkConfig = {
   redisUrl: string | null
   databaseUrl: string | null
   pgBossSchema: string
+  /** Cap on pg-boss's own connection pool. Small on purpose — see the transport option. */
+  pgBossMaxConnections: number
   tickMs: number
   drainTimeoutMs: number
   reconcilerGraceMs: number
@@ -36,6 +38,9 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): DurableWorkCon
     redisUrl: env.DURABLE_WORK_REDIS_URL ?? env.QUEUE_REDIS_URL ?? env.REDIS_URL ?? null,
     databaseUrl: env.DATABASE_URL ?? null,
     pgBossSchema: env.DURABLE_WORK_PGBOSS_SCHEMA ?? 'durable_work_boss',
+    // Deliberately far below pg-boss's own default: this pool is opened per process that
+    // touches the transport, and an in-process worker means the web process is one of them.
+    pgBossMaxConnections: num(env.DURABLE_WORK_PGBOSS_MAX, 4),
     tickMs: num(env.DURABLE_WORK_TICK_MS, 15_000),
     drainTimeoutMs: num(env.DURABLE_WORK_DRAIN_TIMEOUT_MS, 30_000),
     reconcilerGraceMs: num(env.DURABLE_WORK_GRACE_MS, 20_000),
@@ -59,7 +64,11 @@ export function createTransport(config: DurableWorkConfig, deps: { redisConnecti
     }
     case 'pgboss': {
       if (!config.databaseUrl) throw new Error('DURABLE_WORK_TRANSPORT=pgboss requires DATABASE_URL.')
-      return new PgBossTransport({ connectionString: config.databaseUrl, schema: config.pgBossSchema })
+      return new PgBossTransport({
+        connectionString: config.databaseUrl,
+        schema: config.pgBossSchema,
+        max: config.pgBossMaxConnections,
+      })
     }
   }
 }

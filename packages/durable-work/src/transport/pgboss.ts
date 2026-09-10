@@ -54,7 +54,7 @@ type PgBossInstance = {
   offWork(name: string, options?: { id?: string }): Promise<unknown>
 }
 
-type PgBossModule = { PgBoss: new (options: { connectionString: string; schema?: string }) => PgBossInstance }
+type PgBossModule = { PgBoss: new (options: { connectionString: string; schema?: string; max?: number }) => PgBossInstance }
 
 export type PgBossTransportOptions = {
   connectionString: string
@@ -62,6 +62,16 @@ export type PgBossTransportOptions = {
   schema?: string
   /** Reuse an already-started instance instead of owning its lifecycle. */
   instance?: PgBossInstance
+  /**
+   * Cap on pg-boss's own connection pool.
+   *
+   * It matters more than it looks. This transport opens a pool *besides* the app's — the
+   * mechanism's own SQL rides the host's EntityManager, but pg-boss does not — and a host that
+   * runs the worker in-process gets one per process that touches the transport: the web process
+   * and any spawned queue worker. Multiplied by replicas during a rolling deploy, pg-boss's own
+   * default is enough to eat a Postgres `max_connections` budget that was sized without it.
+   */
+  max?: number
 }
 
 let cached: PgBossModule | null = null
@@ -126,7 +136,11 @@ export class PgBossTransport implements TransportAdapter {
     if (!this.starting) {
       this.starting = (async () => {
         const { PgBoss } = await pgboss()
-        const instance = new PgBoss({ connectionString: this.options.connectionString, schema: this.options.schema ?? 'durable_work_boss' })
+        const instance = new PgBoss({
+          connectionString: this.options.connectionString,
+          schema: this.options.schema ?? 'durable_work_boss',
+          ...(this.options.max ? { max: this.options.max } : {}),
+        })
         await instance.start()
         this.boss = instance
         return instance
