@@ -12,6 +12,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@fullstackhouse/open-mercato-data-sync-durable": "*",
     "@fullstackhouse/open-mercato-durable-work": "*"
   },
   "devDependencies": {

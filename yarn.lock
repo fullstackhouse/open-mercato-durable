@@ -2088,6 +2088,7 @@ __metadata:
   resolution: "@fullstackhouse/durable-harness@workspace:harness"
   dependencies:
     "@eslint/js": "npm:^9.0.0"
+    "@fullstackhouse/open-mercato-data-sync-durable": "npm:*"
     "@fullstackhouse/open-mercato-durable-work": "npm:*"
     "@testcontainers/postgresql": "npm:^11.0.0"
     "@testcontainers/redis": "npm:^11.0.0"

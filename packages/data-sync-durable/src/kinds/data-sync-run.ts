@@ -6,7 +6,7 @@
 // slice budget is spent), and who writes the terminal state (the durable transition, in the
 // same transaction as the job's own).
 
-import type { KindDefinition, SliceContext, SliceOutcome, SqlExecutor } from '@fullstackhouse/open-mercato-durable-work'
+import { store, type DurableJob, type KindDefinition, type Scope, type SliceContext, type SliceOutcome, type SqlExecutor } from '@fullstackhouse/open-mercato-durable-work'
 
 import {
   mirrorRunStatus,
@@ -132,4 +132,34 @@ export function syncLockKey(integrationId: string, entityType: string, direction
 /** Makes starting a run twice for the same run id return the first job rather than a second. */
 export function syncIdempotencyKey(runId: string): string {
   return `data_sync.run:${runId}`
+}
+
+
+/**
+ * Tells the mechanism that a run an operator cancelled is cancelled.
+ *
+ * Core's cancel route writes `cancelled` straight onto the run and knows nothing about the job.
+ * The run stops either way — the slice notices through the progress job's cancellation flag —
+ * but the *job* never learns, so `cancel_requested_at` is never set, the reconciler's cancelling
+ * sweep has nothing to find, and a kind's `onCancel`, which is where external resources are
+ * released, never runs. A job sitting between slices is worse: nothing stops it from being
+ * delivered again.
+ *
+ * Returns `no_job` rather than throwing when there is nothing to cancel — a run started before
+ * this package was adopted, or one whose job has been reaped. The operator's cancel succeeded;
+ * there is simply nothing further to stop.
+ */
+export async function cancelDurableJobForRun(
+  deps: {
+    sql: SqlExecutor
+    durable: { cancel(id: string, scope: Scope, by: string | null): Promise<DurableJob | null> }
+  },
+  runId: string,
+  scope: Scope,
+  by: string | null,
+): Promise<'cancelled' | 'no_job'> {
+  const job = await store.findByIdempotencyKey(deps.sql, scope, syncIdempotencyKey(runId))
+  if (!job) return 'no_job'
+  await deps.durable.cancel(job.id, scope, by)
+  return 'cancelled'
 }

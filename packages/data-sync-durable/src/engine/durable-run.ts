@@ -192,6 +192,14 @@ export function outcomeOf(recorder: SliceRecorder, runId: string, runStatus?: st
     // as success would leave a job that says `completed` beside a run that says `failed`.
     // Committed batches are what distinguishes them: a slice that did real work and then found
     // the run terminal without recording anything did not simply arrive late.
+    // A cancelled run is neither of those: it says plainly who ended it. An operator cancels
+    // through core's route, which writes `cancelled` onto the run — and if the job was between
+    // slices at that moment, the next delivery starts a slice, core's engine returns early
+    // because the run is over, and nothing is captured. Draining here would complete the job
+    // beside a run that says `cancelled`, which is the disagreement the mirror exists to
+    // prevent. Checked before the seam test, because committed work does not make it a mystery.
+    if (runStatus === 'cancelled') return 'cancelled'
+
     if (recorder.committedBatches() > 0 && runStatus && runStatus !== 'running' && runStatus !== 'pending') {
       throw new SeamBrokenError(runId, `the run reached "${runStatus}" without the adopter recording it`)
     }
@@ -212,10 +220,17 @@ export async function mirrorRunStatus(
   // Fenced on the run still being open, so a run finished by another path is not overwritten —
   // "mirrored" means the domain row agrees, and a row that already disagrees for a good reason
   // must not be forced.
+  //
+  // `or status = $2` is what makes that precise rather than merely strict. A row already in the
+  // target status *agrees*; this writer simply was not the one that put it there. Treating that
+  // as no-match cost a staging environment twenty minutes: core's cancel route writes
+  // `cancelled` straight onto the run, so by the time the job mirrored its own cancellation the
+  // row already said so, the transition failed, and the only exit from `running` is that same
+  // mirror — so it retried until its budget was gone and stopped there.
   const result = await tx.query(
     `update sync_runs
         set status = $2, last_error = $3, updated_at = now()
-      where id = $1 and deleted_at is null and status in ('pending','running')`,
+      where id = $1 and deleted_at is null and (status in ('pending','running') or status = $2)`,
     [runId, status, errorMessage],
   )
   return { matched: result.rowCount }
