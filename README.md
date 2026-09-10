@@ -44,7 +44,10 @@ while the worker reads the other.
 { id: 'data_sync',    from: '@fullstackhouse/open-mercato-data-sync-durable' },   // was '@open-mercato/core'
 ```
 
-Then `yarn generate && yarn db:migrate`, set `DURABLE_WORK_TRANSPORT=pgboss|bullmq`, and run the durable worker as its own process: `yarn mercato durable_work worker`. Grant `durable_work.operate` to the roles that may re-drive or cancel jobs. Swapping back to core is the same one line.
+Then `yarn generate && yarn db:migrate` and set `DURABLE_WORK_TRANSPORT=pgboss|bullmq`. Something has to run slices, and there are two ways to arrange that:
+
+- **In the server process** — set `DURABLE_WORK_INPROCESS_WORKER=true` and call `startInProcessWorker()` from the app's bootstrap (`instrumentation.ts` on Next). No second container, no second Deployment, and nothing for a host to forget — which matters, because forgetting is silently fatal: runs are created, leased by nobody, and parked by the reconciler much later. A deploy stopping the server mid-slice is the case the mechanism is built for; the lease expires and another replica resumes from the committed cursor.
+- **Beside it** — run `yarn mercato durable_work worker` as its own process. Right when slices are CPU-heavy, when the worker should scale separately from the web tier, or when its memory should not share a pod with request handling. Grant `durable_work.operate` to the roles that may re-drive or cancel jobs. Swapping back to core is the same one line.
 
 Per-package READMEs carry the full configuration reference.
 

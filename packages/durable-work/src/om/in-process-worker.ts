@@ -1,0 +1,118 @@
+// Running the worker inside the app's server process, rather than beside it.
+//
+// The worker has to be *a* process; it does not have to be its own. `mercato server start`
+// already brings up the queue workers an app declares, and an operator reasonably expects
+// durable work to arrive the same way — install the package, register the module, done. A
+// deployment that also requires a second container or Deployment is a step every host must get
+// right, and one that is silently fatal when missed: runs are created, adopted, leased by
+// nobody, and parked by the reconciler much later.
+//
+// Coupling the worker to the web process costs less here than it would elsewhere, because the
+// mechanism is built for exactly the failure that coupling introduces. A deploy stops the web
+// process mid-slice; the lease expires, the reconciler takes the job, and another replica
+// resumes from the committed cursor. That is the same path a killed worker takes, and it is
+// tested. Scaling is a benefit rather than a hazard: N web replicas mean N workers, and the
+// lock key still allows only one live run per subject.
+//
+// What it does cost, stated plainly so a host can weigh it:
+//
+//   - the worker shares the pod's memory and database pool with request handling, so a host
+//     that sizes pods tightly must account for a third consumer
+//   - slice work is I/O-bound (SQL, HTTP, a source database), so it interleaves with requests
+//     rather than blocking them — but a CPU-heavy kind would not, and belongs in its own process
+//   - autoscaling on CPU sees worker load as web load
+//
+// A host that would rather keep them apart sets nothing and runs `mercato durable_work worker`
+// as its own process; that path is unchanged and remains the right one for heavy kinds.
+
+import { registry } from '../core/registry'
+import { startWorker } from '../core/worker'
+import type { SqlTransactor } from '../core/types'
+import type { TransportAdapter } from '../transport/types'
+import { readConfig } from './config'
+
+export type InProcessWorkerOptions = {
+  /** Resolves the app's container. Defaults to Open Mercato's request container. */
+  resolveContainer?: () => Promise<{ resolve(name: string): unknown }>
+  /** Restrict to a subset of registered kinds. */
+  kinds?: string[]
+  concurrency?: number
+  log?: (event: string, fields: Record<string, unknown>) => void
+  env?: NodeJS.ProcessEnv
+}
+
+/** Started once per process, however many times a host's bootstrap runs. Next calls
+ *  `register()` per runtime, and a container may be built per request. */
+let started: Promise<{ owner: string } | null> | null = null
+
+/**
+ * Starts the durable worker in this process, if the host asked for one.
+ *
+ * A no-op unless `DURABLE_WORK_INPROCESS_WORKER` is set, so importing this is safe from a
+ * bootstrap that also runs in a CLI, a migration, or a build.
+ *
+ * Returns the worker's owner id, or null when it did not start.
+ */
+export async function startInProcessWorker(options: InProcessWorkerOptions = {}): Promise<{ owner: string } | null> {
+  const config = readConfig(options.env ?? process.env)
+  if (!config.inProcessWorker) return null
+  if (started) return started
+
+  started = (async () => {
+    const log = options.log ?? (() => undefined)
+    const resolveContainer =
+      options.resolveContainer ??
+      (async () => {
+        const { createRequestContainer } = await import('@open-mercato/shared/lib/di/container')
+        return createRequestContainer()
+      })
+
+    const container = await resolveContainer()
+    const sql = container.resolve('durableWorkSql') as SqlTransactor
+    const transport = container.resolve('durableWorkTransport') as TransportAdapter
+
+    const worker = await startWorker({
+      sql,
+      transport,
+      registry,
+      kinds: options.kinds,
+      concurrency: options.concurrency,
+      tickMs: config.tickMs,
+      reconcilerGraceMs: config.reconcilerGraceMs,
+      drainTimeoutMs: config.drainTimeoutMs,
+      log,
+    })
+
+    log('durable_work.worker_started', {
+      owner: worker.owner,
+      transport: transport.name,
+      inProcess: true,
+      kinds: registry.list().map((kind) => kind.kind),
+    })
+
+    // SIGTERM is what a deploy sends. Draining rather than exiting is the difference between a
+    // slice handing its remaining work back and a slice being cut off between two writes.
+    //
+    // The listeners do not call `process.exit`: this process is the web server, and it owns
+    // when to leave. Draining the worker first is all that is wanted here.
+    let stopping = false
+    const stop = async (signal: string) => {
+      if (stopping) return
+      stopping = true
+      log('durable_work.worker_draining', { signal, timeoutMs: config.drainTimeoutMs })
+      await worker.stop().catch(() => undefined)
+      log('durable_work.worker_stopped', {})
+    }
+    process.once('SIGTERM', () => void stop('SIGTERM'))
+    process.once('SIGINT', () => void stop('SIGINT'))
+
+    return { owner: worker.owner }
+  })()
+
+  return started
+}
+
+/** Test seam: forget that a worker was started in this process. */
+export function resetInProcessWorker(): void {
+  started = null
+}

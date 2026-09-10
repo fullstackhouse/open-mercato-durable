@@ -85,6 +85,8 @@ export type {
 } from './transport/types'
 export { createTransport, readConfig } from './om/config'
 export type { DurableWorkConfig } from './om/config'
+export { resetInProcessWorker, startInProcessWorker } from './om/in-process-worker'
+export type { InProcessWorkerOptions } from './om/in-process-worker'
 export { mikroExecutor, mikroTx } from './om/sql-executor-mikro'
 export { createProgressMirror } from './om/progress-mirror'
 export type { ProgressMirror, ProgressServiceLike } from './om/progress-mirror'
