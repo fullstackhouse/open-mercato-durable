@@ -112,7 +112,6 @@ jobs:
       - if: steps.specs.outputs.found == 'true'
         run: yarn test:integration:ephemeral
         env:
-          DURABLE_WORK_INPROCESS_WORKER: '1'
           # The full OM app build is memory-hungry; the default runner heap is not enough.
           NODE_OPTIONS: --max-old-space-size=6144
       - uses: actions/upload-artifact@v4

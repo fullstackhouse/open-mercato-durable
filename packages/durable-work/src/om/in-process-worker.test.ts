@@ -1,9 +1,10 @@
 // The worker running inside the host's server process.
 //
 // The behaviour that matters here is not "does it start" but "does it start exactly once, and
-// stay out of the way when it was not asked for". A host's bootstrap runs in places that are
-// not a server — a migration, a CLI command, a build — and Next calls `register()` once per
-// runtime, so a helper that started a worker per call would put several on one process.
+// refuse the one context where starting is wrong". Calling this is the opt-in, so the question
+// of "was it asked for" is settled by the call itself; what remains is a Next production build,
+// which evaluates `instrumentation.ts` and must not bind a broker. Next also calls `register()`
+// once per runtime, so a helper that started a worker per call would put several on one process.
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -27,21 +28,24 @@ afterEach(() => {
 })
 
 describe('startInProcessWorker', () => {
-  it('does nothing unless the host asked for it', async () => {
-    // Safe to call from a bootstrap shared with migrations and CLI commands.
-    await expect(run({ DURABLE_WORK_TRANSPORT: 'pgboss' })).resolves.toBeNull()
-    expect(startWorker).not.toHaveBeenCalled()
-  })
-
-  it('starts a worker when the flag is set, and reports its owner', async () => {
-    await expect(run({ DURABLE_WORK_TRANSPORT: 'pgboss', DURABLE_WORK_INPROCESS_WORKER: 'true' })).resolves.toEqual({
-      owner: 'dw-test-owner',
-    })
+  it('starts because it was called, with no second switch to also set', async () => {
+    // The regression this guards: re-introducing an enable flag would make an explicitly wired
+    // call silently do nothing, which reads exactly like a broker that never delivered.
+    await expect(run({ DURABLE_WORK_TRANSPORT: 'pgboss' })).resolves.toEqual({ owner: 'dw-test-owner' })
     expect(startWorker).toHaveBeenCalledTimes(1)
   })
 
+  it('refuses to start during a Next production build', async () => {
+    // `instrumentation.ts` is evaluated at build time too. A build has no business binding a
+    // broker from CI, and briefly owning jobs it cannot finish is worse than not starting.
+    await expect(
+      run({ DURABLE_WORK_TRANSPORT: 'pgboss', NEXT_PHASE: 'phase-production-build' }),
+    ).resolves.toBeNull()
+    expect(startWorker).not.toHaveBeenCalled()
+  })
+
   it('starts once per process however many times a bootstrap runs', async () => {
-    const env = { DURABLE_WORK_TRANSPORT: 'pgboss', DURABLE_WORK_INPROCESS_WORKER: '1' }
+    const env = { DURABLE_WORK_TRANSPORT: 'pgboss' }
     const [first, second, third] = await Promise.all([run(env), run(env), run(env)])
 
     expect(startWorker).toHaveBeenCalledTimes(1)
@@ -52,7 +56,6 @@ describe('startInProcessWorker', () => {
   it("passes the host's timing configuration through rather than re-deriving it", async () => {
     await run({
       DURABLE_WORK_TRANSPORT: 'pgboss',
-      DURABLE_WORK_INPROCESS_WORKER: 'true',
       DURABLE_WORK_TICK_MS: '5000',
       DURABLE_WORK_GRACE_MS: '7000',
       DURABLE_WORK_DRAIN_TIMEOUT_MS: '9000',
@@ -64,7 +67,7 @@ describe('startInProcessWorker', () => {
   })
 
   it('drains on SIGTERM instead of leaving the process, which the server owns', async () => {
-    await run({ DURABLE_WORK_TRANSPORT: 'pgboss', DURABLE_WORK_INPROCESS_WORKER: 'true' })
+    await run({ DURABLE_WORK_TRANSPORT: 'pgboss' })
     const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
 
     process.emit('SIGTERM')
