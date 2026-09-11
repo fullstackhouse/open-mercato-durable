@@ -238,6 +238,29 @@ jobs:
       - run: npm publish --tag "pr-${{ github.event.pull_request.number }}"
         working-directory: packages/data-sync-durable
 
+      # A successful `npm publish` does not mean an installable package. It answers
+      # "Your package is being processed and may take a few minutes to become available", exits
+      # 0, and the version is genuinely absent from the registry until it is not — which is how
+      # the first RC came to announce an install line for a package that could not yet be
+      # installed. Ask the registry, the way scripts/bootstrap-release.sh already does.
+      - env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          for package in @fullstackhouse/open-mercato-durable-work @fullstackhouse/open-mercato-data-sync-durable; do
+            for attempt in $(seq 1 30); do
+              if npm view "$package@$VERSION" version --registry https://registry.npmjs.org > /dev/null 2>&1; then
+                echo "$package@$VERSION is on the registry"
+                break
+              fi
+              if [ "$attempt" = 30 ]; then
+                echo "::error::$package@$VERSION never became available, though publish reported success."
+                exit 1
+              fi
+              sleep 10
+            done
+          done
+
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.value }}
