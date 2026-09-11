@@ -44,6 +44,22 @@ export type InProcessWorkerOptions = {
 /** Started once per process, however many times a host's bootstrap runs. Next calls
  *  `register()` per runtime, and a container may be built per request. */
 let started: Promise<{ owner: string } | null> | null = null
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+let shuttingDown = false
+let signalsBound = false
+
+/**
+ * How long to wait before trying again after a failed start, doubling to a cap.
+ *
+ * Deliberately not configurable. The host calls `startInProcessWorker` exactly once, at boot, so
+ * there is nobody to retry on its behalf — which made a failed start permanent for the life of
+ * the pod. A blip in the broker during a rollout could therefore leave every replica serving
+ * traffic with no worker and no reconciler, indefinitely, because readiness probes cannot see
+ * this and nothing restarts the pod. Recovering from that is not a policy a host should have to
+ * opt into.
+ */
+const RETRY_BASE_MS = 5_000
+const RETRY_MAX_MS = 60_000
 
 /**
  * Starts the durable worker in this process.
@@ -62,10 +78,64 @@ let started: Promise<{ owner: string } | null> | null = null
 export async function startInProcessWorker(options: InProcessWorkerOptions = {}): Promise<{ owner: string } | null> {
   const env = options.env ?? process.env
   if (env.NEXT_PHASE === 'phase-production-build') return null
-  const config = readConfig(env)
   if (started) return started
+  bindShutdownSignals(options)
+  started = attemptStart(options, 1)
+  return started
+}
 
-  started = (async () => {
+/**
+ * One attempt, with the next one scheduled if it fails.
+ *
+ * The memo is cleared before the retry is queued, so a rejected start is never handed to a later
+ * caller — a cached rejection is how "we tried once and it broke" becomes "this process will
+ * never have a worker".
+ */
+async function attemptStart(options: InProcessWorkerOptions, attempt: number): Promise<{ owner: string } | null> {
+  const log = options.log ?? (() => undefined)
+  try {
+    return await doStart(options)
+  } catch (error) {
+    started = null
+    scheduleRetry(options, attempt, log)
+    throw error
+  }
+}
+
+function scheduleRetry(options: InProcessWorkerOptions, attempt: number, log: NonNullable<InProcessWorkerOptions['log']>): void {
+  if (shuttingDown || retryTimer) return
+  const delayMs = Math.min(RETRY_BASE_MS * 2 ** (attempt - 1), RETRY_MAX_MS)
+  log('durable_work.worker_start_retry_scheduled', { attempt, delayMs })
+  retryTimer = setTimeout(() => {
+    retryTimer = null
+    if (shuttingDown) return
+    // The rejection is already reported by the attempt itself and handled by the retry it
+    // schedules; swallowing it here only stops an unhandled rejection from taking the process
+    // down for a failure that is being dealt with.
+    started = attemptStart(options, attempt + 1)
+    void started.catch(() => undefined)
+  }, delayMs)
+  // Never hold the process open for a retry. The web server decides when to exit.
+  retryTimer.unref?.()
+}
+
+function bindShutdownSignals(options: InProcessWorkerOptions): void {
+  if (signalsBound) return
+  signalsBound = true
+  const stopRetrying = () => {
+    shuttingDown = true
+    if (retryTimer) {
+      clearTimeout(retryTimer)
+      retryTimer = null
+    }
+  }
+  process.once('SIGTERM', stopRetrying)
+  process.once('SIGINT', stopRetrying)
+}
+
+async function doStart(options: InProcessWorkerOptions): Promise<{ owner: string } | null> {
+  const config = readConfig(options.env ?? process.env)
+  {
     const log = options.log ?? (() => undefined)
     const resolveContainer =
       options.resolveContainer ??
@@ -114,12 +184,14 @@ export async function startInProcessWorker(options: InProcessWorkerOptions = {})
     process.once('SIGINT', () => void stop('SIGINT'))
 
     return { owner: worker.owner }
-  })()
-
-  return started
+  }
 }
 
 /** Test seam: forget that a worker was started in this process. */
 export function resetInProcessWorker(): void {
   started = null
+  if (retryTimer) clearTimeout(retryTimer)
+  retryTimer = null
+  shuttingDown = false
+  signalsBound = false
 }
