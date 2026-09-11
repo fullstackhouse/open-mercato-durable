@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+    # `labeled` is not in the default set, and without it applying `publish-rc` to an open PR
+    # would sit there doing nothing until the next push.
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
   schedule:
     # Nightly, for the install lane — the one check that needs the packages packed and
@@ -176,6 +179,77 @@ jobs:
       - run: yarn platform:sync --channel ${{ matrix.channel }}
       - run: yarn install --no-immutable
       - run: ./scripts/install-lane.sh ${{ matrix.channel }}
+
+  release-rc:
+    name: release-rc
+    # A throwaway build of an unmerged PR, so it can be installed somewhere real before anyone
+    # commits to merging it. Opt-in per PR via the `publish-rc` label: npm versions are immutable
+    # and cannot be reclaimed, so publishing one on every push would litter the registry with
+    # builds nobody asked for.
+    #
+    # It lives in THIS workflow file on purpose. npm trusted publishing is configured against
+    # `ci.yml` specifically — a publish from any other workflow is refused at the token exchange,
+    # however correct the job looks.
+    needs: [packages, harness, e2e-sandbox, compat]
+    if: >-
+      github.event_name == 'pull_request'
+      && contains(github.event.pull_request.labels.*.name, 'publish-rc')
+      && vars.NPM_RELEASE_ENABLED == 'true'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # the comment saying how to install what was just published
+      id-token: write # npm trusted publishing, and provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - run: corepack enable
+      - run: npm install -g npm@latest
+      - run: yarn install --immutable
+
+      # `<current>-pr<N>.<run>`, which sorts BELOW the release it is a candidate for and below
+      # the version already on the registry — so it can never be picked up by a caret range, and
+      # a stale RC cannot win over a real release. The run number makes each push a new version,
+      # because a published one can never be rewritten.
+      - id: version
+        run: |
+          set -euo pipefail
+          base="$(node -p "require('./packages/durable-work/package.json').version")"
+          echo "value=${base}-pr${{ github.event.pull_request.number }}.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      # The same script the real release uses, so an RC is put together the way a release is:
+      # both packages at one version, and the adopter's peer range rewritten to match. Nothing is
+      # committed — this version exists only on the registry.
+      - run: node scripts/set-release-version.mjs "${{ steps.version.outputs.value }}"
+
+      # Proves the packed shape before publishing it, for the same reason the release job does:
+      # a broken `exports` map or a missing `files` entry is invisible in the workspace and fatal
+      # on install — and this RC exists precisely to be installed somewhere else.
+      - run: ./scripts/install-lane.sh latest
+
+      # `--tag pr-<N>` keeps it off `latest`. Without it npm moves `latest` to whatever published
+      # most recently, which would point every default install at an unmerged branch.
+      - run: npm publish --tag "pr-${{ github.event.pull_request.number }}"
+        working-directory: packages/durable-work
+      - run: npm publish --tag "pr-${{ github.event.pull_request.number }}"
+        working-directory: packages/data-sync-durable
+
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          gh pr comment "${{ github.event.pull_request.number }}" --body "Published \`$VERSION\` for testing — not \`latest\`, and it sorts below the release it precedes.
+
+          \`\`\`
+          yarn add @fullstackhouse/open-mercato-durable-work@$VERSION @fullstackhouse/open-mercato-data-sync-durable@$VERSION
+          \`\`\`
+
+          Pin the exact version rather than the \`pr-${{ github.event.pull_request.number }}\` tag: the tag moves on every push to this PR, which is not what a lockfile wants. Re-label or push to publish a newer one."
 
   release:
     name: release
