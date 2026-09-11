@@ -2113,7 +2113,7 @@ __metadata:
   resolution: "@fullstackhouse/open-mercato-data-sync-durable@workspace:packages/data-sync-durable"
   dependencies:
     "@eslint/js": "npm:^9.0.0"
-    "@fullstackhouse/open-mercato-durable-work": "npm:^0.2.2"
+    "@fullstackhouse/open-mercato-durable-work": "npm:^0.3.0"
     "@mikro-orm/core": "npm:^7.1.8"
     "@mikro-orm/migrations": "npm:^7.1.8"
     "@mikro-orm/postgresql": "npm:^7.1.8"
@@ -2136,7 +2136,7 @@ __metadata:
     vitest: "npm:^3.0.0"
     zod: "npm:^4.4.3"
   peerDependencies:
-    "@fullstackhouse/open-mercato-durable-work": ^0.2.2
+    "@fullstackhouse/open-mercato-durable-work": ^0.3.0
     "@mikro-orm/core": ">=7.0.0"
     "@mikro-orm/migrations": ">=7.0.0"
     "@mikro-orm/postgresql": ">=7.0.0"
@@ -2151,7 +2151,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@fullstackhouse/open-mercato-durable-work@npm:*, @fullstackhouse/open-mercato-durable-work@npm:^0.2.2, @fullstackhouse/open-mercato-durable-work@workspace:packages/durable-work":
+"@fullstackhouse/open-mercato-durable-work@npm:*, @fullstackhouse/open-mercato-durable-work@npm:^0.3.0, @fullstackhouse/open-mercato-durable-work@workspace:packages/durable-work":
   version: 0.0.0-use.local
   resolution: "@fullstackhouse/open-mercato-durable-work@workspace:packages/durable-work"
   dependencies:
@@ -4027,14 +4027,14 @@ __metadata:
   linkType: hard
 
 "@napi-rs/wasm-runtime@npm:^1.1.4":
-  version: 1.2.3
-  resolution: "@napi-rs/wasm-runtime@npm:1.2.3"
+  version: 1.2.4
+  resolution: "@napi-rs/wasm-runtime@npm:1.2.4"
   dependencies:
     "@tybys/wasm-util": "npm:^0.10.3"
   peerDependencies:
     "@emnapi/core": ^1.7.1 || ^2.0.0-alpha.4
     "@emnapi/runtime": ^1.7.1 || ^2.0.0-alpha.4
-  checksum: 10/86f7f092309eb005ff9e456c12a9f81ae06ff823602740a8c9c54b2dfc17620d9b4d88c4cd179541c794aed521ac57c7e37457a00e87a624867d78f6bbce0d7c
+  checksum: 10/5cda52f943c67eba1875d95dc7ea0dbe2c1581edb25660d3b0d780d7d87600bdaf92b4f4395e3cde82a9ccfb540da55567452e6e6d61fb13b7f51da7a3ad9151
   languageName: node
   linkType: hard
 
@@ -7850,15 +7850,15 @@ __metadata:
   linkType: hard
 
 "@stripe/react-stripe-js@npm:^6.7.0":
-  version: 6.9.0
-  resolution: "@stripe/react-stripe-js@npm:6.9.0"
+  version: 6.10.0
+  resolution: "@stripe/react-stripe-js@npm:6.10.0"
   dependencies:
     prop-types: "npm:^15.7.2"
   peerDependencies:
-    "@stripe/stripe-js": ">=9.10.0 <10.0.0"
+    "@stripe/stripe-js": ">=9.16.0 <10.0.0"
     react: ">=16.8.0 <20.0.0"
     react-dom: ">=16.8.0 <20.0.0"
-  checksum: 10/9f54beede6f6e582b379b462f2ded4313bac4fcbc2b2e1394156d141514739fe25331c5308f42c91f952082b42ab5ade142d837c84c386bd41f64c59c99885a5
+  checksum: 10/c67eda7662f8c1f1a65fe9bb002ec3dca035853884101fe5754ee1ff0f476514a3547fe01d9da4e51b6bfe50c467dae2159d35c4c6e61b9a97614d0eb93ec0a1
   languageName: node
   linkType: hard
 
@@ -10388,11 +10388,11 @@ __metadata:
   linkType: hard
 
 "baseline-browser-mapping@npm:^2.11.20, baseline-browser-mapping@npm:^2.9.19":
-  version: 2.11.21
-  resolution: "baseline-browser-mapping@npm:2.11.21"
+  version: 2.11.22
+  resolution: "baseline-browser-mapping@npm:2.11.22"
   bin:
     baseline-browser-mapping: dist/cli.cjs
-  checksum: 10/b4d223df8dbb8deeaa3dae3b9b60ad48b24c57a5473827b5a6ee1c21917e7c37af2185224c5366f2932654ec5fb1a9fee4f95fe7213cc29f4347550f25e4234b
+  checksum: 10/edcd3b5a653b3bfb55327e5637420a843d05a3918270d0ce21ba5c80ecfdd74b1bbb929a77f31c488d7145e009a37e8b5870a178813e6610098cfea9dab8a5e4
   languageName: node
   linkType: hard
 
@@ -10653,8 +10653,8 @@ __metadata:
   linkType: hard
 
 "bullmq@npm:^5.76.2":
-  version: 5.81.4
-  resolution: "bullmq@npm:5.81.4"
+  version: 5.81.5
+  resolution: "bullmq@npm:5.81.5"
   dependencies:
     cron-parser: "npm:4.9.0"
     ioredis: "npm:5.11.1"
@@ -10667,7 +10667,7 @@ __metadata:
   peerDependenciesMeta:
     redis:
       optional: true
-  checksum: 10/65c6d26f6fab884b84d4639d0ad014c0b50a7ad32401ade4e7658ca76392afccbef41398f20e64ffc72ac217d9ae5fe82e0e7144c307ad80301b25599d2bfd78
+  checksum: 10/72c0a021c158a8ef23d16f49dd12863b30bcb1234f20ac0b679b176f61947c45858caf817cff881d61ac5eb4f1136ef54c73546329a4ec75d89265e3724de635
   languageName: node
   linkType: hard
 
@@ -11311,9 +11311,9 @@ __metadata:
   linkType: hard
 
 "content-type@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "content-type@npm:3.0.0"
-  checksum: 10/24b17acec728546e09fc0dfe7c0301ff2c3aad8fcbaa6dd8cad2c58855adf8a39b31017ab7d70abab9919626c73a2dbca83925985ee88fccbd6b9f703a5a3eb4
+  version: 3.1.0
+  resolution: "content-type@npm:3.1.0"
+  checksum: 10/ecca3f8210510aaac776133003cbdc52431add06b60b5ac8b02bfa8dc59eabc68d4d783eaf458e27898a4afb99e1cd536a8d8298909e05a031150b2aa474ca0f
   languageName: node
   linkType: hard
 
@@ -12345,9 +12345,9 @@ __metadata:
   linkType: hard
 
 "electron-to-chromium@npm:^1.5.420":
-  version: 1.5.425
-  resolution: "electron-to-chromium@npm:1.5.425"
-  checksum: 10/c8bf467e0b639c5ffac58a046afb5d8088b5aae2513dd017096ee89f26fc7585c37f56ec6c6e71fdbc75fc31120c5736961c78a79c71f2edb5e14392319533b4
+  version: 1.5.427
+  resolution: "electron-to-chromium@npm:1.5.427"
+  checksum: 10/a24162110bd8540a186036667e4315b6e1dffd47d086311e6fb8bc703e984db81bd1d74561fcaf1f9ced2c27a215958cb23776b76eb157b4abe5a2dcf4aa726d
   languageName: node
   linkType: hard
 
@@ -17364,11 +17364,11 @@ __metadata:
   linkType: hard
 
 "lucide-react@npm:^1.27.0":
-  version: 1.43.0
-  resolution: "lucide-react@npm:1.43.0"
+  version: 1.44.0
+  resolution: "lucide-react@npm:1.44.0"
   peerDependencies:
     react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-  checksum: 10/e423d7417a61bfc0972e6bb906bbaefb87777ce870372adcf4aa50ab00428590c9cf05afebb3024380340b456f3a7f0b484b407c050a99c428af14935dc31b52
+  checksum: 10/a927cc1eb80aff44219c435f561e8e1ba8792f5660dfded2a8b4e2d150d52654bdce6ef0ec4fe7e5cf354f5e71639dbd0b31399648e20bba4a396f55f3351e8c
   languageName: node
   linkType: hard
 
@@ -17398,8 +17398,8 @@ __metadata:
   linkType: hard
 
 "mailparser@npm:^3.9.14":
-  version: 3.9.23
-  resolution: "mailparser@npm:3.9.23"
+  version: 3.9.24
+  resolution: "mailparser@npm:3.9.24"
   dependencies:
     "@zone-eu/mailsplit": "npm:5.4.16"
     encoding-japanese: "npm:2.3.0"
@@ -17408,10 +17408,10 @@ __metadata:
     iconv-lite: "npm:0.7.3"
     libmime: "npm:5.4.3"
     linkify-it: "npm:5.0.2"
-    nodemailer: "npm:10.0.1"
+    nodemailer: "npm:10.0.3"
     punycode.js: "npm:2.3.1"
     tlds: "npm:1.261.0"
-  checksum: 10/b46064f27072323fe5b0b6f586ce0fe0f263d33ebe5b8f268bb44e8b34ca09a4377ea1749342f2275face70b3346ddec5af29a8a0b65675073649a27c77dfe4e
+  checksum: 10/8ab7211169c283200e85c87f87c6ba3b1d847e1d6771701e99c788b235752a789847984921538f60ed1a807935f50731194df487e4fb04f575da9b7ddee12669
   languageName: node
   linkType: hard
 
@@ -18692,11 +18692,11 @@ __metadata:
   linkType: hard
 
 "nanoid@npm:^3.3.16, nanoid@npm:^3.3.18":
-  version: 3.3.18
-  resolution: "nanoid@npm:3.3.18"
+  version: 3.3.19
+  resolution: "nanoid@npm:3.3.19"
   bin:
     nanoid: bin/nanoid.cjs
-  checksum: 10/1b3b4fdac831b92b56d1dbe8b1e63a372432faf86ea383134e3b53141ef8108a60b7f84343b5cefecac9550bb74edf8164da93ea07d1c4f757039bc75d8a5d9e
+  checksum: 10/a330adb28dad63eccb0a0c95a2a61353e84b7e067061fff94167803d94be8eef0f7b75cf2da1bece06e8b7afb892abbe52cf0ec33298c817a083eedccd7656e4
   languageName: node
   linkType: hard
 
@@ -18747,8 +18747,8 @@ __metadata:
   linkType: hard
 
 "newrelic@npm:^14.3.4":
-  version: 14.3.10
-  resolution: "newrelic@npm:14.3.10"
+  version: 14.4.0
+  resolution: "newrelic@npm:14.4.0"
   dependencies:
     "@apm-js-collab/tracing-hooks": "npm:^0.13.0"
     "@datadog/pprof": "npm:^5.14.2"
@@ -18789,7 +18789,7 @@ __metadata:
       optional: true
   bin:
     newrelic-naming-rules: bin/test-naming-rules.js
-  checksum: 10/905573f57a72e09d80006c02e2e905891afccdd029ebb558fa1a6082aaca0952c78f1c2ee2c61f7b349c8dd0b794afb35070bf9cb16624c93335036228147f5e
+  checksum: 10/226c92d998933958c3ce478feb93601fbee8982c49cbb795773dd7db54b34861e0f0f77f703f85d8692df57084c963966eed60ce82492949c0827fbaace51b3f
   languageName: node
   linkType: hard
 
@@ -19054,10 +19054,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nodemailer@npm:10.0.1":
-  version: 10.0.1
-  resolution: "nodemailer@npm:10.0.1"
-  checksum: 10/6eac597020a20faa2bba98fc54e68a22bfbe4914b1655a11804a8d29621bfa7d53ce104969587beaa74d6ba4d165e578ee1135346a34a95b78f93cd126821e69
+"nodemailer@npm:10.0.3":
+  version: 10.0.3
+  resolution: "nodemailer@npm:10.0.3"
+  checksum: 10/0e18045336afae76fc7319d964375358b4237a0c832b0da65882d7ccb1c125cebe771698b2715a02739cfc8dfc576f67de20e0f5c7393169a440a3f0605a8c4a
   languageName: node
   linkType: hard
 
@@ -20042,15 +20042,16 @@ __metadata:
   linkType: hard
 
 "pg-boss@npm:^12.30.0":
-  version: 12.30.0
-  resolution: "pg-boss@npm:12.30.0"
+  version: 12.31.0
+  resolution: "pg-boss@npm:12.31.0"
   dependencies:
     cron-parser: "npm:^5.10.0"
     pg: "npm:^8.23.0"
+    rrule-temporal: "npm:^2.2.4"
     serialize-error: "npm:^13.0.1"
   bin:
     pg-boss: dist/cli.js
-  checksum: 10/1d5961810ba96e8172ba40fb45b81c2877c14277f715e56945f99ab0557e82ed8c676f1e324fc2cd623c1952b5b961f0c34dd46946fb1cfd18862fc8c4e7402c
+  checksum: 10/b4bafefb8a63948a1f4b055c708b5cde3968bc08341aa6221b633a70052c497dfca23bd7efe5fc4ad58e9359d553e481867d2c0a593dac3c843bef79b347dbef
   languageName: node
   linkType: hard
 
@@ -21769,6 +21770,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"rrule-temporal@npm:^2.2.4":
+  version: 2.2.4
+  resolution: "rrule-temporal@npm:2.2.4"
+  dependencies:
+    temporal-spec: "npm:^1.0.0"
+  checksum: 10/5faf809df026fd0cc38305939f1510627ef9958893919e7fe0e67f015420c2582c362d28799936d0d3c1458bedcd593d5b7b21be5795068508a19354b4a571fc
+  languageName: node
+  linkType: hard
+
 "rrweb-cssom@npm:^0.8.0":
   version: 0.8.0
   resolution: "rrweb-cssom@npm:0.8.0"
@@ -23339,6 +23349,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"temporal-spec@npm:^1.0.0":
+  version: 1.0.1
+  resolution: "temporal-spec@npm:1.0.1"
+  checksum: 10/7623ba4c36cc4f7842aafb9289ee426650dcf5860a247d8f0ea48bfe8bee09ff7ed1dadabaa3892ecd81c9721b0103a8dae9409d6c343350d1fba7269a712ba6
+  languageName: node
+  linkType: hard
+
 "tempy@npm:^3.0.0":
   version: 3.2.0
   resolution: "tempy@npm:3.2.0"
@@ -24523,8 +24540,8 @@ __metadata:
   linkType: hard
 
 "update-browserslist-db@npm:^1.3.2":
-  version: 1.3.2
-  resolution: "update-browserslist-db@npm:1.3.2"
+  version: 1.3.3
+  resolution: "update-browserslist-db@npm:1.3.3"
   dependencies:
     escalade: "npm:^3.2.0"
     picocolors: "npm:^1.1.1"
@@ -24532,7 +24549,7 @@ __metadata:
     browserslist: ">= 4.21.0"
   bin:
     update-browserslist-db: cli.js
-  checksum: 10/ca883e9d0fca1b5bfb9d5e7d9468c5ddd1d66ea827566f474875171381ad33b84aa555c138094fb2c6297c680e06482ad8b4c1ad931e8bfab9a4cf36ea9cf006
+  checksum: 10/c60c18c53ba53915b377830db55049cd3ee31129633b4e386d2e48f9a1a15ade7503a80a57dd11d66cbac583a8ad3f2d61e938895b1c2155323fd4367530f5b2
   languageName: node
   linkType: hard
 
@@ -25376,9 +25393,9 @@ __metadata:
   linkType: hard
 
 "zod@npm:^3.25 || ^4.0, zod@npm:^3.25.0 || ^4.0.0, zod@npm:^4.4.3":
-  version: 4.6.1
-  resolution: "zod@npm:4.6.1"
-  checksum: 10/061c51d941fea3ec43055d908e6587bdf42556228b5ccb40227f5eca3050c6c7d987f7e7de8ff3720ecf764448af323cc876cf64501f8c6fb681199273744674
+  version: 4.6.2
+  resolution: "zod@npm:4.6.2"
+  checksum: 10/5a89e9c364cb9982fe198736235039ea2438c7c9b9cafd639e0cb895eb30ce9ce7485d82fc940e483a048f1f9966eb3fa2a4181a1f07c17ef18a3e5c73757823
   languageName: node
   linkType: hard
 

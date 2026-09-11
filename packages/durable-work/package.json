@@ -1,6 +1,6 @@
 {
   "name": "@fullstackhouse/open-mercato-durable-work",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Durable at-least-once background work for Open Mercato apps: a leased job record in Postgres with epoch fencing, bounded resumable slices, a server-side reconciler, fenced cancel and an operator API. Pluggable transport (BullMQ or pg-boss).",
   "type": "module",
   "main": "./dist/index.js",
