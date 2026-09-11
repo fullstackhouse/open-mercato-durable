@@ -15,16 +15,12 @@ export type DurableWorkConfig = {
   tickMs: number
   drainTimeoutMs: number
   reconcilerGraceMs: number
-  /** Hosts the worker inside the app process. Dev and ephemeral tests only. */
-  inProcessWorker: boolean
 }
 
 const num = (value: string | undefined, fallback: number): number => {
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
-
-const bool = (value: string | undefined): boolean => value === '1' || value?.toLowerCase() === 'true'
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): DurableWorkConfig {
   const raw = (env.DURABLE_WORK_TRANSPORT ?? 'pgboss').trim().toLowerCase()
@@ -44,7 +40,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): DurableWorkCon
     tickMs: num(env.DURABLE_WORK_TICK_MS, 15_000),
     drainTimeoutMs: num(env.DURABLE_WORK_DRAIN_TIMEOUT_MS, 30_000),
     reconcilerGraceMs: num(env.DURABLE_WORK_GRACE_MS, 20_000),
-    inProcessWorker: bool(env.DURABLE_WORK_INPROCESS_WORKER),
   }
 }
 

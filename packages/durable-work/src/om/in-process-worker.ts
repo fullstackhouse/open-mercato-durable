@@ -46,16 +46,23 @@ export type InProcessWorkerOptions = {
 let started: Promise<{ owner: string } | null> | null = null
 
 /**
- * Starts the durable worker in this process, if the host asked for one.
+ * Starts the durable worker in this process.
  *
- * A no-op unless `DURABLE_WORK_INPROCESS_WORKER` is set, so importing this is safe from a
- * bootstrap that also runs in a CLI, a migration, or a build.
+ * Calling this IS the opt-in — there is no environment variable to also set. A host that would
+ * rather run the worker apart simply does not call it, and runs `mercato durable_work worker`
+ * instead. A second switch in front of an explicitly wired call only creates a way for the two
+ * to disagree, which is exactly how a host ends up with runs that nothing leases.
+ *
+ * The one thing that is still refused is a Next production build. `instrumentation.ts` is
+ * evaluated there too, and a build has no business binding a broker or holding a lease — it
+ * would reach for Redis or Postgres from CI and, worse, briefly own jobs it cannot finish.
  *
  * Returns the worker's owner id, or null when it did not start.
  */
 export async function startInProcessWorker(options: InProcessWorkerOptions = {}): Promise<{ owner: string } | null> {
-  const config = readConfig(options.env ?? process.env)
-  if (!config.inProcessWorker) return null
+  const env = options.env ?? process.env
+  if (env.NEXT_PHASE === 'phase-production-build') return null
+  const config = readConfig(env)
   if (started) return started
 
   started = (async () => {

@@ -46,7 +46,7 @@ while the worker reads the other.
 
 Then `yarn generate && yarn db:migrate` and set `DURABLE_WORK_TRANSPORT=pgboss|bullmq`. Something has to run slices, and there are two ways to arrange that:
 
-- **In the server process** — set `DURABLE_WORK_INPROCESS_WORKER=true` and call `startInProcessWorker()` from the app's bootstrap (`instrumentation.ts` on Next). No second container, no second Deployment, and nothing for a host to forget — which matters, because forgetting is silently fatal: runs are created, leased by nobody, and parked by the reconciler much later. A deploy stopping the server mid-slice is the case the mechanism is built for; the lease expires and another replica resumes from the committed cursor.
+- **In the server process** — call `startInProcessWorker()` from the app's bootstrap (`instrumentation.ts` on Next). The call is the opt-in; there is no flag to also set. No second container, no second Deployment, and nothing for a host to forget — which matters, because forgetting is silently fatal: runs are created, leased by nobody, and parked by the reconciler much later. A deploy stopping the server mid-slice is the case the mechanism is built for; the lease expires and another replica resumes from the committed cursor.
 - **Beside it** — run `yarn mercato durable_work worker` as its own process. Right when slices are CPU-heavy, when the worker should scale separately from the web tier, or when its memory should not share a pod with request handling. Grant `durable_work.operate` to the roles that may re-drive or cancel jobs. Swapping back to core is the same one line.
 
 Per-package READMEs carry the full configuration reference.
