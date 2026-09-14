@@ -84,3 +84,31 @@ describe(`transactional enqueue [${transport}]`, () => {
     expect(adapter.supportsTransactionalEnqueue).toBe(expected)
   })
 })
+
+// The shape a host actually gets.
+//
+// Everything above builds the adapter by hand, with an `ioredis` instance. No deployment does
+// that: `durable_work/di.ts` calls `createTransport(readConfig())`, which has only the URL to
+// work with. That path was never exercised here, and it did not work — `upsertTick` hung rather
+// than failing, so the worker never started, runs sat `pending` with no lease, and the pod
+// looked healthy. A suite that constructs its own connection cannot catch that, however
+// thorough it is about everything else.
+describe.runIf(transport === 'bullmq')('the transport a host gets from createTransport', () => {
+  it('completes upsertTick and bind, driven only by a Redis URL', async () => {
+    const { createTransport, readConfig } = await import('@fullstackhouse/open-mercato-durable-work')
+    const adapter = createTransport(
+      readConfig({ DURABLE_WORK_TRANSPORT: 'bullmq', QUEUE_REDIS_URL: env.redisUrl! } as NodeJS.ProcessEnv),
+    )
+    const queue = queueNameFor(`host-shape-${randomUUID().slice(0, 8)}`)
+
+    try {
+      // Both calls `startWorker` makes, in the order it makes them. The hang was in the second,
+      // which is why binding successfully proves nothing on its own.
+      const bound = await adapter.bind(queue, async () => {}, { concurrency: 1, activeTimeoutMs: 30_000 })
+      await adapter.upsertTick({ id: `${queue}-tick`, queue, everyMs: 60_000 })
+      await bound.close({ timeoutMs: 5_000 })
+    } finally {
+      await adapter.close({ timeoutMs: 5_000 })
+    }
+  }, 60_000)
+})
