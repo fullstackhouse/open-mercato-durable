@@ -122,11 +122,16 @@ function scheduleRetry(options: InProcessWorkerOptions, attempt: number, log: No
 function bindShutdownSignals(options: InProcessWorkerOptions): void {
   if (signalsBound) return
   signalsBound = true
+  const log = options.log ?? (() => undefined)
   const stopRetrying = () => {
     shuttingDown = true
     if (retryTimer) {
       clearTimeout(retryTimer)
       retryTimer = null
+      // Worth a line: the process is leaving without a worker, and the reason is that it was
+      // still retrying when it was told to stop — which reads very differently in a log from a
+      // worker that drained cleanly.
+      log('durable_work.worker_start_retry_cancelled', { reason: 'shutdown' })
     }
   }
   process.once('SIGTERM', stopRetrying)
