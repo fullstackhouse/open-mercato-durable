@@ -43,6 +43,36 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): DurableWorkCon
   }
 }
 
+/**
+ * A URL becomes connection OPTIONS, never a bare string.
+ *
+ * BullMQ's types accept a string, and it does not work: on a real deployment `upsertJobScheduler`
+ * never returned — no error, no timeout, it simply hung — so the worker never started, sync runs
+ * sat `pending` with no lease, and the pod stayed healthy the whole time. An `ioredis` instance
+ * works, and so does an options object; only the string does not. Measured against one Redis with
+ * one BullMQ version, changing nothing but this.
+ *
+ * Options rather than an instance because this function is synchronous and `ioredis` reaches us
+ * only through BullMQ's own dependency — constructing one here would mean importing a package the
+ * host owns, from a code path that cannot await.
+ *
+ * `maxRetriesPerRequest: null` is BullMQ's requirement for the blocking connections its workers
+ * use; it refuses to start otherwise.
+ */
+function redisOptionsFromUrl(url: string): Record<string, unknown> {
+  const parsed = new URL(url)
+  const database = parsed.pathname.replace(/^\//, '')
+  return {
+    host: parsed.hostname,
+    port: Number(parsed.port || 6379),
+    username: parsed.username ? decodeURIComponent(parsed.username) : undefined,
+    password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+    db: database ? Number(database) : undefined,
+    tls: parsed.protocol === 'rediss:' ? {} : undefined,
+    maxRetriesPerRequest: null,
+  }
+}
+
 export function createTransport(config: DurableWorkConfig, deps: { redisConnection?: unknown } = {}): TransportAdapter {
   switch (config.transport) {
     case 'memory':
@@ -53,9 +83,9 @@ export function createTransport(config: DurableWorkConfig, deps: { redisConnecti
       }
       return new MemoryTransport()
     case 'bullmq': {
-      const connection = deps.redisConnection ?? config.redisUrl
-      if (!connection) throw new Error('DURABLE_WORK_TRANSPORT=bullmq requires DURABLE_WORK_REDIS_URL (or QUEUE_REDIS_URL).')
-      return new BullMQTransport({ connection })
+      if (deps.redisConnection) return new BullMQTransport({ connection: deps.redisConnection })
+      if (!config.redisUrl) throw new Error('DURABLE_WORK_TRANSPORT=bullmq requires DURABLE_WORK_REDIS_URL (or QUEUE_REDIS_URL).')
+      return new BullMQTransport({ connection: redisOptionsFromUrl(config.redisUrl) })
     }
     case 'pgboss': {
       if (!config.databaseUrl) throw new Error('DURABLE_WORK_TRANSPORT=pgboss requires DATABASE_URL.')
