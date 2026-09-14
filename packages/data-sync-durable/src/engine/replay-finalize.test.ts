@@ -142,9 +142,7 @@ describe('replayFinalize', () => {
     'puts the tenant and organization on the %s event, so a host subscriber can scope its lookup',
     async (status) => {
       const d = deps()
-      await replayFinalize(d.deps, run, status, status === 'failed' ? 'boom' : null, scope, {
-        resultSummary: {},
-      })
+      await replayFinalize(d.deps, run, status, status === 'failed' ? 'boom' : null, scope, 'user-1')
 
       expect(d.emitEvent).toHaveBeenCalledWith(
         `data_sync.run.${status}`,
@@ -157,9 +155,7 @@ describe('replayFinalize', () => {
     // An absent key and an explicit null read the same to a host that spreads the payload, but
     // not to one that checks `'organizationId' in payload` to tell "unscoped" from "tenant-wide".
     const d = deps()
-    await replayFinalize(d.deps, run, 'completed', null, { tenantId: 't1', organizationId: null }, {
-      resultSummary: {},
-    })
+    await replayFinalize(d.deps, run, 'completed', null, { tenantId: 't1', organizationId: null }, 'user-1')
 
     const [, payload] = d.emitEvent.mock.calls[0] as [string, Record<string, unknown>]
     expect(Object.keys(payload)).toContain('organizationId')
