@@ -131,6 +131,41 @@ describe('replayFinalize', () => {
     expect(d.emitEvent).toHaveBeenCalledWith('data_sync.run.completed', expect.anything())
   })
 
+  // The scope on the event is this package's contract with whatever the host hangs off it.
+  //
+  // A host subscriber cannot look a run up without a tenant — the run service is scoped — so an
+  // event missing one is an event that subscriber must drop. Dropping it silently is the failure
+  // mode: reporting stops, and nothing anywhere says so. It is asserted here, for every terminal
+  // status, so the seam is provable in this repo rather than only by running a host app against
+  // it and noticing what stopped happening.
+  it.each(['completed', 'failed', 'cancelled'] as const)(
+    'puts the tenant and organization on the %s event, so a host subscriber can scope its lookup',
+    async (status) => {
+      const d = deps()
+      await replayFinalize(d.deps, run, status, status === 'failed' ? 'boom' : null, scope, {
+        resultSummary: {},
+      })
+
+      expect(d.emitEvent).toHaveBeenCalledWith(
+        `data_sync.run.${status}`,
+        expect.objectContaining({ runId: 'run-1', tenantId: 't1', organizationId: 'o1' }),
+      )
+    },
+  )
+
+  it('carries a null organization through rather than omitting the key', async () => {
+    // An absent key and an explicit null read the same to a host that spreads the payload, but
+    // not to one that checks `'organizationId' in payload` to tell "unscoped" from "tenant-wide".
+    const d = deps()
+    await replayFinalize(d.deps, run, 'completed', null, { tenantId: 't1', organizationId: null }, {
+      resultSummary: {},
+    })
+
+    const [, payload] = d.emitEvent.mock.calls[0] as [string, Record<string, unknown>]
+    expect(Object.keys(payload)).toContain('organizationId')
+    expect(payload.organizationId).toBeNull()
+  })
+
   it('does nothing with a progress job when the run never had one', async () => {
     // `createProgressJob: false` is a supported way to start a run, and core guards its whole
     // progress branch on `run.progressJobId`.
