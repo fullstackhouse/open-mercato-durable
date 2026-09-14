@@ -49,10 +49,11 @@ export function adoptOnDelivery(direction: 'import' | 'export') {
       return
     }
 
-    // Idempotent by the run id, so a redelivery of the same queue message adopts once. The
-    // lock key is the same one the durable start path uses, so a run that is already being
-    // driven refuses this rather than being driven twice.
-    await durable.startAndEnqueue(
+    // Idempotent by the run id: a redelivery of this message, or the durable run route having
+    // adopted the same run first, returns the existing job rather than refusing. The lock key is
+    // the one the durable start path uses, so a DIFFERENT run already driving this stream
+    // refuses this one rather than both walking the same cursor.
+    const { created } = await durable.startAndEnqueue(
       {
         kind: direction === 'import' ? IMPORT_KIND : EXPORT_KIND,
         input: { runId, batchSize: batchSize ?? 100, direction },
@@ -64,6 +65,7 @@ export function adoptOnDelivery(direction: 'import' | 'export') {
       { tenantId: scope.tenantId, organizationId: scope.organizationId },
     )
 
-    logger.info('Adopted a core-path sync run as durable work', { runId, direction })
+    if (created) logger.info('Adopted a core-path sync run as durable work', { runId, direction })
+    else logger.info('Sync run already adopted as durable work', { runId, direction })
   }
 }

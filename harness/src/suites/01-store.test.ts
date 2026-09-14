@@ -7,11 +7,11 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { makeOwnerId, store, type Lease, type Scope } from '@fullstackhouse/open-mercato-durable-work'
+import { makeOwnerId, store, type Lease, type Scope, type SqlExecutor, type StartJobInput } from '@fullstackhouse/open-mercato-durable-work'
 import { LockKeyHeldError } from '@fullstackhouse/open-mercato-durable-work'
 
 import { acquire, type HarnessEnv } from '../env'
-import { ageBy, connect, freshScope, migrate, type PgExecutor } from '../db'
+import { ageBy, connect, countJobs, dedicatedConnection, freshScope, migrate, type PgExecutor } from '../db'
 
 let env: HarnessEnv
 let sql: PgExecutor
@@ -119,6 +119,75 @@ describe('creation', () => {
     // …and a second tenant-wide holder is still refused, which is the case a NULL-distinct
     // unique index would have let through.
     await expect(store.insertJob(sql, randomUUID(), tenantWide, { kind: 'test.kind', lockKey: 'shared' }, QUEUE)).rejects.toThrow(LockKeyHeldError)
+  })
+})
+
+describe('two starts racing for one key', () => {
+  // Both starters get past every read before either insert lands. The winner's row exists but
+  // is uncommitted, so nothing the loser reads can see it, and the loser's insert waits on the
+  // winner's transaction. This is how the durable run route and core's queue delivery adopt the
+  // same data_sync run a millisecond apart — forced here rather than hoped for.
+  type Outcome<T> = { ok: true; value: T } | { ok: false; error: unknown }
+
+  async function race<T>(scope: Scope, winner: Omit<StartJobInput, 'kind'>, loser: (other: SqlExecutor) => Promise<T>) {
+    const other = await dedicatedConnection(env.postgresUrl!, sql)
+    let lost: Promise<Outcome<T>> | undefined
+    try {
+      const won = await sql.transaction(async (tx) => {
+        const first = await store.insertJob(tx, randomUUID(), scope, { kind: 'test.kind', ...winner }, QUEUE)
+        lost = loser(other.sql).then(
+          (value) => ({ ok: true as const, value }),
+          (error: unknown) => ({ ok: false as const, error }),
+        )
+        await other.waitUntilBlocked()
+        return first
+      })
+      return { won, lost: await lost! }
+    } finally {
+      await lost
+      await other.end()
+    }
+  }
+
+  it.each([
+    ['with a lock key', { idempotencyKey: 'run:1', lockKey: 'sync:race' }],
+    ['without one', { idempotencyKey: 'run:1' }],
+  ])('the loser of an idempotency key gets the winner\'s job, %s', async (_, keys) => {
+    const scope = freshScope()
+    const { won, lost } = await race(scope, keys, (other) =>
+      store.insertJob(other, randomUUID(), scope, { kind: 'test.kind', ...keys }, QUEUE),
+    )
+    expect(lost).toMatchObject({ ok: true, value: { created: false, job: { id: won.job.id } } })
+    expect(await countJobs(sql, scope)).toBe(1)
+  })
+
+  it('a different job racing for the same lock key is still refused, and names the holder', async () => {
+    const scope = freshScope()
+    const { won, lost } = await race(scope, { idempotencyKey: 'run:1', lockKey: 'sync:race' }, (other) =>
+      store.insertJob(other, randomUUID(), scope, { kind: 'test.kind', idempotencyKey: 'run:2', lockKey: 'sync:race' }, QUEUE),
+    )
+    expect(lost.ok).toBe(false)
+    const error = (lost as { error: unknown }).error
+    expect(error).toBeInstanceOf(LockKeyHeldError)
+    expect(error).toMatchObject({ heldBy: won.job.id })
+  })
+
+  it('a loser inside its own transaction gets the winner\'s job and can keep using the transaction', async () => {
+    const scope = freshScope()
+    const keys = { idempotencyKey: 'run:1', lockKey: 'sync:race' }
+    const { won, lost } = await race(scope, keys, async (other) => {
+      await other.query('begin')
+      try {
+        const started = await store.insertJob(other, randomUUID(), scope, { kind: 'test.kind', ...keys }, QUEUE)
+        const readBack = await store.getJob(other, started.job.id, scope)
+        await other.query('commit')
+        return { started, readBack }
+      } catch (error) {
+        await other.query('rollback')
+        throw error
+      }
+    })
+    expect(lost).toMatchObject({ ok: true, value: { started: { created: false }, readBack: { id: won.job.id } } })
   })
 })
 
