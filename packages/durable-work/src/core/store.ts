@@ -174,6 +174,10 @@ export async function insertJob(
     const existing = await findByIdempotencyKey(sql, scope, input.idempotencyKey)
     if (existing) return { job: existing, created: false }
   }
+  // `do nothing` absorbs the primary key's conflict too. A reused id is the caller's bug, not a
+  // held key, and must not be reported as one.
+  const sameId = await sql.query<Row>(`select 1 from ${TABLE} where id = $1`, [id])
+  if (sameId.rows.length) throw new Error(`Job ${id} already exists`)
   if (input.lockKey) {
     const holder = await findLiveByLockKey(sql, scope, input.lockKey)
     // No holder means it went terminal between the insert and this read. The key was held when

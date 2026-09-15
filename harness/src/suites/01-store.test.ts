@@ -67,6 +67,16 @@ describe('creation', () => {
     await expect(store.insertJob(sql, randomUUID(), scope, { kind: 'test.kind', lockKey: 'sync:1' }, QUEUE)).rejects.toMatchObject({ heldBy: held.id })
   })
 
+  it('refuses a reused job id as a reused id, not as a held lock key', async () => {
+    const scope = freshScope()
+    const job = await newJob(scope)
+    const error = await store
+      .insertJob(sql, job.id, scope, { kind: 'test.kind', lockKey: 'sync:free' }, QUEUE)
+      .catch((caught: unknown) => caught)
+    expect(error).not.toBeInstanceOf(LockKeyHeldError)
+    expect((error as Error).message).toBe(`Job ${job.id} already exists`)
+  })
+
   it('frees the lock key once the holder is terminal', async () => {
     const scope = freshScope()
     const first = await newJob(scope, { lockKey: 'sync:2' })
