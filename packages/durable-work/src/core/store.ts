@@ -13,7 +13,6 @@
 //      current counters — never from a value the caller read earlier.
 
 import {
-  LOCK_KEY_INDEX,
   NO_ORG,
   TABLE,
 } from './schema'
@@ -107,13 +106,6 @@ const one = (result: { rows: Row[] }): DurableJob | null => (result.rows.length 
  *  ("tenant-wide"), not a wildcard, and treating it as one would leak jobs across orgs. */
 const SCOPE = `tenant_id = $2 and (organization_id = $3 or ($3::uuid is null and organization_id is null))`
 
-function isUniqueViolation(error: unknown, index: string): boolean {
-  const e = error as { code?: unknown; constraint?: unknown; message?: unknown } | null
-  if (!e || e.code !== '23505') return false
-  if (typeof e.constraint === 'string') return e.constraint === index
-  return typeof e.message === 'string' && e.message.includes(index)
-}
-
 // ---------------------------------------------------------------------------------------
 // Creation
 // ---------------------------------------------------------------------------------------
@@ -152,46 +144,47 @@ export async function insertJob(
     input.totalCount ?? null,
   ]
 
-  // Checked before the insert, not after the violation.
+  // Insert first, then explain a conflict — not check-then-insert.
   //
-  // A failed statement aborts the whole transaction in Postgres — every subsequent command is
-  // refused until it ends. So a catch that queries for the existing job, or for the lock
-  // holder, works on an autocommit connection and fails on the caller's transaction, which is
-  // exactly where `start` is supposed to be called. The unique indexes are still the
-  // authority: they close the race between this check and the insert, and a violation that
-  // survives it is raised without touching the connection again.
+  // A check before the insert cannot see a concurrent start that has not committed yet, so two
+  // starters of the same idempotency key both pass it and both insert. The unique indexes are
+  // the authority; the question is only what the loser is told. `on conflict do nothing` lets
+  // the loser find out without a violation: a failed statement would abort the caller's
+  // transaction, and `start` is meant to be called inside one, so the lookups below would then
+  // fail with "current transaction is aborted" instead of answering.
+  const inserted = await sql.query<Row>(
+    `insert into ${TABLE} (
+       id, tenant_id, organization_id, kind, status,
+       input, meta, idempotency_key, lock_key, subject_type, subject_id, progress_job_id,
+       created_by, queue_name, total_count, pending_since, created_at, updated_at
+     ) values (
+       $1, $2, $3, $4, 'pending',
+       $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11,
+       $12, $13, $14, now(), now(), now()
+     )
+     on conflict do nothing
+     returning ${COLUMNS}`,
+    params,
+  )
+  if (inserted.rows.length) return { job: mapRow(inserted.rows[0]!), created: true }
+
+  // The conflicting row is committed by now: the insert waited for its transaction to end, and
+  // under read committed each statement below sees what committed before it.
   if (input.idempotencyKey) {
     const existing = await findByIdempotencyKey(sql, scope, input.idempotencyKey)
     if (existing) return { job: existing, created: false }
   }
+  // `do nothing` absorbs the primary key's conflict too. A reused id is the caller's bug, not a
+  // held key, and must not be reported as one.
+  const sameId = await sql.query<Row>(`select 1 from ${TABLE} where id = $1`, [id])
+  if (sameId.rows.length) throw new Error(`Job ${id} already exists`)
   if (input.lockKey) {
     const holder = await findLiveByLockKey(sql, scope, input.lockKey)
-    if (holder) throw new LockKeyHeldError(input.lockKey, holder.id)
+    // No holder means it went terminal between the insert and this read. The key was held when
+    // this start asked for it, so the refusal stands; only the holder's id is gone.
+    throw new LockKeyHeldError(input.lockKey, holder?.id)
   }
-
-  try {
-    const inserted = await sql.query<Row>(
-      `insert into ${TABLE} (
-         id, tenant_id, organization_id, kind, status,
-         input, meta, idempotency_key, lock_key, subject_type, subject_id, progress_job_id,
-         created_by, queue_name, total_count, pending_since, created_at, updated_at
-       ) values (
-         $1, $2, $3, $4, 'pending',
-         $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11,
-         $12, $13, $14, now(), now(), now()
-       ) returning ${COLUMNS}`,
-      params,
-    )
-    return { job: mapRow(inserted.rows[0]!), created: true }
-  } catch (error) {
-    // Lost the race with a concurrent start. No further query is issued here — the transaction
-    // is aborted, so any lookup would fail with "current transaction is aborted" and bury the
-    // real cause. The holder's id is unavailable in this narrow case; the refusal is not.
-    if (input.lockKey && isUniqueViolation(error, LOCK_KEY_INDEX)) {
-      throw new LockKeyHeldError(input.lockKey)
-    }
-    throw error
-  }
+  throw new Error(`Job ${id} conflicted with an existing ${TABLE} row that is no longer visible`)
 }
 
 export async function findByIdempotencyKey(sql: SqlExecutor, scope: Scope, key: string): Promise<DurableJob | null> {

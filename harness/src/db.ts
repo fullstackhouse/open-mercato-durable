@@ -6,7 +6,7 @@
 // stub proves nothing about the thing being claimed.
 
 import { randomUUID } from 'node:crypto'
-import { Pool, type PoolClient } from 'pg'
+import { Client, Pool, type ClientBase } from 'pg'
 
 import { SCHEMA_STATEMENTS, TABLE, type Scope, type SqlExecutor, type SqlTransactor } from '@fullstackhouse/open-mercato-durable-work'
 
@@ -38,7 +38,7 @@ export class PgExecutor implements SqlTransactor {
   }
 }
 
-function clientExecutor(client: PoolClient): SqlExecutor {
+function clientExecutor(client: ClientBase): SqlExecutor {
   return {
     async query<R = Record<string, unknown>>(text: string, params: readonly unknown[] = []) {
       const result = await client.query(text, params as unknown[])
@@ -50,6 +50,35 @@ function clientExecutor(client: PoolClient): SqlExecutor {
 export async function connect(url: string, opts: { max?: number } = {}): Promise<PgExecutor> {
   const pool = new Pool({ connectionString: url, max: opts.max ?? 10 })
   return new PgExecutor(pool)
+}
+
+/**
+ * A connection of its own, outside the pool, whose backend the test can watch.
+ *
+ * For interleavings a test must force rather than hope for: start a statement here, wait until
+ * Postgres reports it waiting on a lock, then release the lock from the pool side. `monitor` is
+ * any other connection — the waiting one cannot ask about itself.
+ */
+export async function dedicatedConnection(url: string, monitor: SqlExecutor) {
+  const client = new Client({ connectionString: url })
+  await client.connect()
+  const pid = (await client.query<{ pid: number }>('select pg_backend_pid() as pid')).rows[0]!.pid
+  return {
+    sql: clientExecutor(client),
+    async waitUntilBlocked(timeoutMs = 10_000): Promise<void> {
+      const deadline = Date.now() + timeoutMs
+      while (Date.now() < deadline) {
+        const result = await monitor.query<{ wait: string | null }>(
+          'select wait_event_type as wait from pg_stat_activity where pid = $1',
+          [pid],
+        )
+        if (result.rows[0]?.wait === 'Lock') return
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      }
+      throw new Error(`backend ${pid} never blocked on a lock within ${timeoutMs}ms`)
+    },
+    end: () => client.end(),
+  }
 }
 
 export async function migrate(sql: SqlExecutor): Promise<void> {
